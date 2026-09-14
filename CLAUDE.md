@@ -15,7 +15,7 @@
 
 | Katman | Seçim | Not |
 |---|---|---|
-| Frontend | Next.js 14 (App Router) + TypeScript + Tailwind CSS | Türkçe arayüz varsayılan |
+| Frontend | Next.js 16.3.5 (App Router) + React 19.2.8 + TypeScript + Tailwind CSS | Türkçe arayüz varsayılan; istek öncesi mantık `proxy.ts`'te (Next.js 16'da `middleware.ts` yerine geçti) |
 | Veritabanı | Supabase / PostgreSQL (Pro Plan) | Frankfurt region |
 | Hosting | Vercel | Her modül ayrı Vercel projesi |
 | DNS / Trafik | Cloudflare | Modüller ayrı domainlerde, subdomain değil |
@@ -23,6 +23,8 @@
 | AI | Claude API | Yalnızca danışma/yorum rolünde |
 | Kuyruk / Zamanlayıcı | Upstash QStash | Yalnız mesaj merkezinde; `QueueAdapter` arkasında |
 | Sır yönetimi | Supabase Vault | Sağlayıcı token/key'leri; env'de düz metin yok |
+
+**DB migration bağlantısı (pooler):** Doğrudan host (`db.epzpbfgvekfdbzierrss.supabase.co`) bu ağda yalnızca IPv6'ya çözümleniyor — A kaydı yok, Node/psql'den `ENOTFOUND` verir (`ENETUNREACH` değil). Pooler kullan: host `aws-0-eu-central-1.pooler.supabase.com` — ilk denemede bağlandı (script `aws-1`'i hiç denemedi, `aws-0` başarılı olunca durdu; nslookup'ta ikisi de çözümleniyor ama bu projeye atanan pooler `aws-0`). **Port 5432 (session mode)** kullanıldı — 6543 (transaction mode) hiç denenmedi, Villavilla'daki bilinen "prepared statement already exists" riski nedeniyle önerilmiyor. Kullanıcı: `postgres.epzpbfgvekfdbzierrss`, database `postgres`. Şifre `.env.local`'daki `SUPABASE_DB_PASSWORD`. (2026-09-14 doğrulandı, `supabase/migrations/20260914095651_core_profiles.sql` bu yöntemle çalıştırıldı.)
 
 **Kritik kural:** iş kuralları ve dış servis entegrasyonları harici otomasyon araçlarıyla (n8n vb.) değil, doğrudan uygulama katmanında ve veritabanı mantığında (RLS, trigger, function) işlenir. Deterministik mantık ile LLM danışma rolü kesin olarak ayrılır; LLM hiçbir akışta karar verici değildir. QStash bu kuralın istisnası değildir — iş kuralı taşımaz, yalnızca taşıma ve zamanlama altyapısıdır.
 
@@ -175,7 +177,7 @@ Giden webhook (proje `webhook_url`'ine): `mesaj.gonderildi`, `mesaj.teslim`, `me
 | Faz | Kapsam |
 |---|---|
 | Faz 1 | Hub landing + 8 modül tanıtımı + merkezi kayıt/giriş |
-| Faz 2 | **Mesaj Merkezi MVP:** `asistan_mesaj` şeması + RLS, kredi rezervasyonu, QStash `QueueAdapter`, Vault, webhook imzası, İYS cache, idempotency, maskeleme, 90 gün redaksiyon, audit; panelin Genel Bakış / Kategoriler / Kullanıcılar / Mesaj Günlüğü ekranları |
+| Faz 2 | **Mesaj Merkezi MVP:** `asistan_mesaj` şeması + RLS ✅, kredi rezervasyonu ✅, QStash `QueueAdapter` (arayüz hazır, gerçek bağlantı bekliyor — Upstash hesabı yok), Vault, webhook imzası (yalnız alt proje→merkez yönü ✅, sağlayıcı webhook'ları henüz yok), İYS cache (tablo + okuma ✅, dış senkron yok), idempotency ✅, maskeleme ✅, 90 gün redaksiyon, audit (telefon görüntüleme + manuel kredi ✅, genel kapsam eksik); panelin Genel Bakış / Kategoriler / Kullanıcılar / Mesaj Günlüğü ekranları ✅ |
 | Faz 3 | Trial motoru, salt-okunur mod, retention bildirimleri |
 | Faz 4 | Ortak modüller (personel, muhasebe, randevu) paylaşıma açılır |
 | Faz 5 | Monorepo geçişi (pnpm workspaces + Turborepo) |
@@ -187,13 +189,14 @@ Giden webhook (proje `webhook_url`'ine): `mesaj.gonderildi`, `mesaj.teslim`, `me
 - [x] Ortak onboarding/trial deseninin tanımlanması
 - [x] Ortak personel modülü tasarımı (4 sekme, 12 tablo)
 - [ ] Hub modül listesinin tanıtım PDF'iyle eşitlenmesi
-- [ ] **Mesaj Merkezi Faz 1** — sıradaki: (1) `asistan_mesaj` migration'ı, (2) `/api/v1/mesaj/gonder` + idempotency + kredi rezervasyonu, (3) klinik `merkez-client.ts`'in bağlanması
+- [ ] **Mesaj Merkezi Faz 1** — (1) `asistan_mesaj` migration'ı ✅, (2) `/api/v1` API yüzeyi ✅ (`mesaj/gonder`, `mesaj/toplu`, `mesaj/:id`, `kredi/bakiye`, `kredi/yukleme-talebi`, `kullanici/senkron` — yalnız `whatsapp/baglanti` bekliyor, Meta Tech Provider önkoşulu), (3) panel ekranları ✅ (Genel Bakış/Kategoriler/Kullanıcılar/Mesaj Günlüğü — Faz 2'den erken taşındı; Projeler/Ödemeler/Şablonlar/Zamanlayıcı/Sistem sidebar'da "Yakında"), (4) klinik `merkez-client.ts`'in bağlanması — sıradaki (klinik repo eldeyken)
+- [x] Kayıt formunun §5.1 kapsamına tamamlanması (kişisel/işletme bilgileri, vergi no, görev, tam yetkili, sözleşme onayı — `core.tenants` + `core.profiles.ad_soyad`); tam yetkiliye onay-linkli mail (§5.2) Resend kurulana kadar gönderilmiyor
 - [ ] Klinik Asistanı'nın tamamlanması — **öncelik**; klinik mesaj modülü merkeze bağlı olduğu için Mesaj Merkezi Faz 1 bunun önkoşuludur, rakibi değil
 - [ ] Monorepo geçişi — bilinçli olarak ertelendi, klinik bitince ele alınacak
 
 **Açık sorunlar:**
 - Repolar üç ayrı GitHub hesabına dağılmış (asistan-merkezi org, hakansenipek, nukhetsenipek); monorepo öncesi tek org altında toplanmalı.
-- Ödeme tahsilatı sağlayıcısı seçilmedi; kredi yükleme şimdilik yalnız `super_admin` tarafından elle yapılıyor, alt projeden gelen istek "talep" kaydı oluşturuyor. "Ödeme Referansı" serbest metin alanı bedava kredi kapısıdır, yönetici formundan kaldırılmalı.
+- Ödeme tahsilatı sağlayıcısı seçilmedi; `/api/v1/kredi/yukleme-talebi` alt projeden "talep" kaydı oluşturuyor (yalnız tanımlı `kredi_paketleri`'nden, serbest tutar girilemiyor — bedava kredi kapısı riski API katmanında kapatıldı), ama onay/kredi ekleme hâlâ elle: panel Ödemeler ekranı henüz yok.
 - Meta Tech Provider başvurusu tamamlanmadı — WhatsApp hattı bu olmadan canlıya çıkamaz.
 - Alt proje "şirket bilgileri" senkronizasyonu: webhook + cache pull fallback planlandı, uygulanmadı.
 - Sızan `CRON_SECRET` yenilenip `MERKEZ_INTERNAL_SECRET` olarak her iki tarafa girilecek.

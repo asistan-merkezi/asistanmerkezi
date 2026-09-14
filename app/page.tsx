@@ -1,9 +1,23 @@
 import Image from "next/image";
+import { createClient } from "@/lib/supabase/server";
 
-export default function Home() {
+export default async function Home() {
+  const supabase = await createClient();
+  const {
+    data: { session },
+    error,
+  } = await supabase.auth.getSession();
+
+  const supabaseDurum = error
+    ? `Supabase bağlantı hatası: ${error.message}`
+    : `Supabase bağlantısı OK (oturum: ${session ? "var" : "yok"})`;
+
   return (
     <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
       <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
+        <p className="w-full rounded bg-black/[.06] px-3 py-2 font-mono text-sm dark:bg-white/[.08]">
+          {supabaseDurum}
+        </p>
         <Image
           className="dark:invert h-5 w-[100px]"
           src="/next.svg"
