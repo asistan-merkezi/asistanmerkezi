@@ -30,7 +30,11 @@
 
 ## 3. Modül Haritası
 
-Resmî tanıtım listesi (8 modül). Hub'ın modül listesi bu tabloyla birebir eşleşir.
+Resmî tanıtım listesi (10 modül). Hub'ın modül listesi bu tabloyla birebir eşleşir.
+Durum kolonu iç yol haritasını yansıtır; hub'ın herkese açık ana sayfası
+henüz hiçbir modül canlı olmadığı için tümünü tek tip "Geliştirmede"
+rozetiyle gösterir (bkz. §8/§9 — Klinik önceliği bu iç durumla ilgilidir,
+kamuya açık rozetle değil).
 
 | # | Modül | Domain | Durum |
 |---|---|---|---|
@@ -38,10 +42,12 @@ Resmî tanıtım listesi (8 modül). Hub'ın modül listesi bu tabloyla birebir 
 | 2 | Okul & Kreş Yönetim | okulcrm.net | Geliştirmede |
 | 3 | Muayene & Sağlık (Klinik Asistanı) | — | Aktif geliştirme (öncelik) |
 | 4 | Otel & Konaklama | — | Planlandı |
-| 5 | Market / Tekel / Mağaza | — | Planlandı |
-| 6 | Sekreterya / Arama / Randevu Takip | — | Planlandı |
-| 7 | Borsa & Ev Ekonomisi | borsaasistan.com | Geliştirmede |
-| 8 | Sosyal Medya & Dijital Pazarlama | medyaasistan.com | Geliştirmede |
+| 5 | Market & Tekel | — | Planlandı |
+| 6 | Mağaza & Butik | — | Planlandı |
+| 7 | Sekreterya / Arama / Randevu Takip | — | Planlandı |
+| 8 | Borsa & Piyasa Asistanı | borsaasistan.com | Geliştirmede |
+| 9 | Ev Ekonomisi | — | Geliştirmede |
+| 10 | Sosyal Medya & Dijital Pazarlama | medyaasistan.com | Geliştirmede |
 
 Bu liste aynı zamanda mesaj merkezindeki **kategori** hiyerarşisinin kaynağıdır (§6.2).
 
@@ -105,7 +111,7 @@ Hiyerarşi: **kategori → proje → proje kullanıcısı → gönderen kimliği
 
 | Tablo | Amaç / kritik alanlar |
 |---|---|
-| `kategoriler` | §3'teki 8 modül: `ad`, `slug`, `sira`, `aktif` |
+| `kategoriler` | §3'teki 10 modül: `ad`, `slug`, `sira`, `aktif` |
 | `projeler` | Alt proje: `kategori_id`, `slug`, `domain`, `api_key_hash`, `webhook_url`, `aktif` |
 | `proje_kullanicilari` | Mesajı tetikleyen kiracı: `dis_kullanici_id`, `ad`, `eposta`, `telefon` — UNIQUE(`proje_id`,`dis_kullanici_id`) |
 | `gonderen_kimlikleri` | kullanıcı ↔ kanal ↔ teknik kimlik. WhatsApp: `waba_id`, `phone_number_id`, `baglanti_durumu` (pending/connected/revoked); E-posta: `gonderen_ad/adres`; SMS: `sms_basligi`; Telegram: `bot_token` (şifreli) |
@@ -176,7 +182,7 @@ Giden webhook (proje `webhook_url`'ine): `mesaj.gonderildi`, `mesaj.teslim`, `me
 
 | Faz | Kapsam |
 |---|---|
-| Faz 1 | Hub landing + 8 modül tanıtımı + merkezi kayıt/giriş |
+| Faz 1 | Hub landing + 10 modül tanıtımı + merkezi kayıt/giriş |
 | Faz 2 | **Mesaj Merkezi MVP:** `asistan_mesaj` şeması + RLS ✅, kredi rezervasyonu ✅, QStash `QueueAdapter` (arayüz hazır, gerçek bağlantı bekliyor — Upstash hesabı yok), Vault, webhook imzası (yalnız alt proje→merkez yönü ✅, sağlayıcı webhook'ları henüz yok), İYS cache (tablo + okuma ✅, dış senkron yok), idempotency ✅, maskeleme ✅, 90 gün redaksiyon, audit (telefon görüntüleme + manuel kredi ✅, genel kapsam eksik); panelin Genel Bakış / Kategoriler / Kullanıcılar / Mesaj Günlüğü ekranları ✅ |
 | Faz 3 | Trial motoru, salt-okunur mod, retention bildirimleri |
 | Faz 4 | Ortak modüller (personel, muhasebe, randevu) paylaşıma açılır |

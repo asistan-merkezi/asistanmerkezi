@@ -1,84 +1,7 @@
 import Link from "next/link";
 import type { SVGProps } from "react";
 import { createClient } from "@/lib/supabase/server";
-
-type Durum = "Öncelikli" | "Geliştirmede" | "Planlandı";
-
-const DURUM_ROZET: Record<Durum, string> = {
-  Öncelikli: "bg-brand-primary-tint text-brand-primary",
-  Geliştirmede: "bg-brand-dev-bg text-brand-dev-text",
-  Planlandı: "bg-brand-planned-bg text-brand-planned-text",
-};
-
-const ONE_CIKAN_MODULLER: {
-  ad: string;
-  aciklama: string;
-  durum: Durum;
-  ikon: (props: SVGProps<SVGSVGElement>) => React.JSX.Element;
-  ozellikler?: string[];
-  not: string;
-}[] = [
-  {
-    ad: "Muayene & Sağlık — Klinik Asistanı",
-    aciklama:
-      "Randevu, hasta takibi ve oda yönetimini yapay zekâ destekli tek panelde toplayın. Kliniğiniz için özel olarak geliştiriliyor.",
-    durum: "Öncelikli",
-    ikon: IkonKlinik,
-    ozellikler: [
-      "Randevu ve oda takibi",
-      "WhatsApp & SMS ile hasta iletişimi",
-      "Otomatik randevu hatırlatmaları",
-    ],
-    not: "Önceliğimiz",
-  },
-  {
-    ad: "Okul & Kreş Yönetim",
-    aciklama:
-      "Kayıttan devam takibine, veli iletişiminden tahsilata kadar eğitim kurumunuzun tüm idari akışını otomatize edin.",
-    durum: "Geliştirmede",
-    ikon: IkonOkul,
-    not: "okulcrm.net",
-  },
-];
-
-const DIGER_MODULLER: {
-  ad: string;
-  aciklama: string;
-  durum: Durum;
-  ikon: (props: SVGProps<SVGSVGElement>) => React.JSX.Element;
-  not: string;
-}[] = [
-  {
-    ad: "Catering & Yeme-İçme",
-    aciklama:
-      "Davet ve etkinlik teklifleri, menü maliyeti ve tedarik sürecini tek ekrandan yönetin.",
-    durum: "Geliştirmede",
-    ikon: IkonCatering,
-    not: "villavillaasistan.com",
-  },
-  {
-    ad: "Borsa & Ev Ekonomisi",
-    aciklama:
-      "Portföyünüzü ve hane bütçenizi tek yerden izleyin, yapay zekâ yorumuyla değerlendirin.",
-    durum: "Geliştirmede",
-    ikon: IkonBorsa,
-    not: "borsaasistan.com",
-  },
-  {
-    ad: "Sosyal Medya & Dijital Pazarlama",
-    aciklama:
-      "İçerik takvimi ve paylaşımlarınızı asistan desteğiyle planlayın.",
-    durum: "Geliştirmede",
-    ikon: IkonSosyalMedya,
-    not: "medyaasistan.com",
-  },
-];
-
-const PLANLANAN_MODULLER: { ad: string; ikon: (props: SVGProps<SVGSVGElement>) => React.JSX.Element }[] = [
-  { ad: "Otel & Konaklama", ikon: IkonOtel },
-  { ad: "Market / Tekel / Mağaza", ikon: IkonMarket },
-  { ad: "Sekreterya / Arama / Randevu Takip", ikon: IkonSekreterya },
-];
+import { MODULLER, IkonSosyalMedya, IkonSekreterya } from "@/lib/data/moduller";
 
 const ADIMLAR = [
   {
@@ -124,6 +47,9 @@ export default async function Home() {
     data: { session },
   } = await supabase.auth.getSession();
 
+  const denemeHref = session ? "/dashboard" : "/sektor-secimi";
+  const denemeEtiketi = session ? "Panele Git" : "Ücretsiz Deneyin";
+
   return (
     <div className="flex flex-1 flex-col bg-brand-surface text-brand-text">
       <header className="sticky top-0 z-20 border-b border-brand-border bg-brand-surface/90 backdrop-blur-xl">
@@ -164,7 +90,7 @@ export default async function Home() {
                   Giriş Yap
                 </Link>
                 <Link
-                  href="/register"
+                  href="/sektor-secimi"
                   className="rounded-xl bg-brand-primary px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-primary-hover"
                 >
                   Ücretsiz Deneyin
@@ -198,15 +124,16 @@ export default async function Home() {
                 <span className="text-brand-primary">sektörünüze özel.</span>
               </h1>
               <p className="mt-6 max-w-xl text-lg leading-relaxed text-brand-text-secondary">
-                8 farklı sektör için tasarlanan, 30 gün ücretsiz denemeli
-                asistan modülleriyle operasyonunuzu tek merkezden yürütün.
+                {MODULLER.length} farklı sektör için tasarlanan, 30 gün
+                ücretsiz denemeli asistan modülleriyle operasyonunuzu tek
+                merkezden yürütün.
               </p>
               <div className="mt-8 flex flex-wrap items-center gap-4">
                 <Link
-                  href={session ? "/dashboard" : "/register"}
+                  href={denemeHref}
                   className="rounded-2xl bg-brand-primary px-7 py-3.5 text-base font-semibold text-white shadow-sm transition-all hover:bg-brand-primary-hover hover:shadow-md active:scale-[0.98]"
                 >
-                  {session ? "Panele Git" : "Ücretsiz Deneyin"}
+                  {denemeEtiketi}
                 </Link>
                 <a
                   href="#moduller"
@@ -270,111 +197,36 @@ export default async function Home() {
                 </h2>
                 <p className="mt-2 max-w-xl text-brand-text-secondary">
                   Her modül, kendi sektörünün iş akışına ve terminolojisine
-                  göre bağımsız olarak geliştirilir.
+                  göre bağımsız olarak geliştiriliyor.
                 </p>
               </div>
+              <span className="rounded-full bg-brand-dev-bg px-3 py-1 text-xs font-semibold uppercase tracking-wider text-brand-dev-text">
+                Tüm modüller geliştirme aşamasında
+              </span>
             </div>
 
-            <div className="flex flex-col gap-6">
-              {/* Öne çıkan bento satırı */}
-              <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-                {ONE_CIKAN_MODULLER.map((modul, i) => (
-                  <div
-                    key={modul.ad}
-                    className={`relative flex flex-col justify-between overflow-hidden rounded-2xl bg-brand-surface p-8 shadow-sm transition-shadow hover:shadow-md lg:p-10 ${
-                      i === 0 ? "lg:col-span-8" : "lg:col-span-4"
-                    }`}
-                  >
-                    <div>
-                      <div className="mb-6 flex items-center justify-between">
-                        <div
-                          className={`flex h-12 w-12 items-center justify-center rounded-full ${
-                            modul.durum === "Öncelikli" ? "bg-brand-primary-tint text-brand-primary" : "bg-brand-surface-alt text-brand-text-secondary"
-                          }`}
-                        >
-                          <modul.ikon className="h-6 w-6" />
-                        </div>
-                        <span
-                          className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider ${DURUM_ROZET[modul.durum]}`}
-                        >
-                          {modul.durum}
-                        </span>
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {MODULLER.map((modul) => (
+                <div
+                  key={modul.ad}
+                  className="flex flex-col justify-between rounded-2xl bg-brand-surface p-6 shadow-sm transition-shadow hover:shadow-md"
+                >
+                  <div>
+                    <div className="mb-5 flex items-center justify-between">
+                      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-brand-surface-alt text-brand-primary">
+                        <modul.ikon className="h-[22px] w-[22px]" />
                       </div>
-                      <h3 className="mb-3 text-xl font-bold text-brand-text lg:text-2xl">
-                        {modul.ad}
-                      </h3>
-                      <p className="mb-6 max-w-2xl leading-relaxed text-brand-text-secondary">
-                        {modul.aciklama}
-                      </p>
-                      {modul.ozellikler && (
-                        <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                          {modul.ozellikler.map((oz) => (
-                            <div key={oz} className="flex items-start gap-2.5 rounded-xl bg-brand-surface-alt p-3">
-                              <IkonCheck className="mt-0.5 h-4 w-4 shrink-0 text-brand-primary" />
-                              <span className="text-sm text-brand-text">{oz}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                      <span className="rounded-full bg-brand-dev-bg px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-brand-dev-text">
+                        Geliştirmede
+                      </span>
                     </div>
-                    <div className="flex items-center justify-between pt-2">
-                      <span className="text-sm font-medium text-brand-text-secondary">{modul.not}</span>
-                      {i === 0 && (
-                        <span className="text-sm font-medium text-brand-text-secondary">
-                          30 Gün Ücretsiz Deneme
-                        </span>
-                      )}
-                    </div>
+                    <h4 className="mb-2 text-lg font-bold text-brand-text">{modul.ad}</h4>
+                    <p className="text-sm leading-relaxed text-brand-text-secondary">
+                      {modul.aciklama}
+                    </p>
                   </div>
-                ))}
-              </div>
-
-              {/* Orta satır: eşit 3 kart */}
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-                {DIGER_MODULLER.map((modul) => (
-                  <div
-                    key={modul.ad}
-                    className="flex flex-col justify-between rounded-2xl bg-brand-surface p-6 shadow-sm transition-shadow hover:shadow-md"
-                  >
-                    <div>
-                      <div className="mb-5 flex items-center justify-between">
-                        <div className="flex h-11 w-11 items-center justify-center rounded-full bg-brand-surface-alt text-brand-primary">
-                          <modul.ikon className="h-[22px] w-[22px]" />
-                        </div>
-                        <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider ${DURUM_ROZET[modul.durum]}`}>
-                          {modul.durum}
-                        </span>
-                      </div>
-                      <h4 className="mb-2 text-lg font-bold text-brand-text">{modul.ad}</h4>
-                      <p className="text-sm leading-relaxed text-brand-text-secondary">
-                        {modul.aciklama}
-                      </p>
-                    </div>
-                    <div className="mt-6 flex items-center justify-between border-t border-brand-surface-alt pt-4 text-sm text-brand-text-secondary">
-                      <span className="font-mono text-xs">{modul.not}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Planlanan modüller şeridi */}
-              <div className="rounded-2xl bg-brand-surface p-6 shadow-sm">
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
-                  {PLANLANAN_MODULLER.map((modul) => (
-                    <div key={modul.ad} className="flex items-center gap-3.5">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-surface-alt text-brand-text-secondary">
-                        <modul.ikon className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <h5 className="text-sm font-semibold text-brand-text">{modul.ad}</h5>
-                        <span className="text-[11px] uppercase tracking-wider text-brand-planned-text">
-                          Planlandı
-                        </span>
-                      </div>
-                    </div>
-                  ))}
                 </div>
-              </div>
+              ))}
             </div>
           </div>
         </section>
@@ -439,7 +291,7 @@ export default async function Home() {
                 </h2>
               </div>
               <Link
-                href={session ? "/dashboard" : "/register"}
+                href={denemeHref}
                 className="shrink-0 rounded-2xl bg-white px-7 py-3.5 text-base font-semibold text-brand-primary shadow-sm transition-transform hover:scale-[1.02]"
               >
                 {session ? "Panele Git" : "Hemen Başlayın"}
@@ -470,7 +322,7 @@ export default async function Home() {
                 <a href="#moduller" className="text-sm text-brand-text-secondary transition-colors hover:text-brand-primary">
                   Modüller
                 </a>
-                <Link href="/register" className="text-sm text-brand-text-secondary transition-colors hover:text-brand-primary">
+                <Link href="/sektor-secimi" className="text-sm text-brand-text-secondary transition-colors hover:text-brand-primary">
                   Ücretsiz Deneyin
                 </Link>
                 <Link href="/login" className="text-sm text-brand-text-secondary transition-colors hover:text-brand-primary">
@@ -489,88 +341,6 @@ export default async function Home() {
         </div>
       </footer>
     </div>
-  );
-}
-
-function IkonKlinik(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <circle cx="12" cy="12" r="9" />
-      <line x1="12" y1="8" x2="12" y2="16" />
-      <line x1="8" y1="12" x2="16" y2="12" />
-    </svg>
-  );
-}
-
-function IkonOkul(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <path d="M12 4 L21 8.5 L12 13 L3 8.5 Z" />
-      <path d="M7 10.5 V15 C7 16.5 9.2 18 12 18 C14.8 18 17 16.5 17 15 V10.5" />
-    </svg>
-  );
-}
-
-function IkonCatering(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <path d="M4 12 a8 6 0 0 0 16 0 Z" />
-      <line x1="12" y1="4" x2="12" y2="7" />
-      <line x1="8.5" y1="5" x2="8.5" y2="8" />
-      <line x1="15.5" y1="5" x2="15.5" y2="8" />
-    </svg>
-  );
-}
-
-function IkonBorsa(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <polyline points="3,17 9,11 13,15 21,6" />
-      <polyline points="15,6 21,6 21,12" />
-    </svg>
-  );
-}
-
-function IkonSosyalMedya(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <path d="M4 5 h13 a2 2 0 0 1 2 2 v6 a2 2 0 0 1 -2 2 h-8 l-4 4 v-4 h-1 a2 2 0 0 1 -2 -2 v-6 a2 2 0 0 1 2 -2 Z" />
-    </svg>
-  );
-}
-
-function IkonOtel(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <rect x="4" y="3" width="16" height="18" rx="1" />
-      <rect x="7" y="6" width="2" height="2" />
-      <rect x="11" y="6" width="2" height="2" />
-      <rect x="15" y="6" width="2" height="2" />
-      <rect x="7" y="10" width="2" height="2" />
-      <rect x="11" y="10" width="2" height="2" />
-      <rect x="15" y="10" width="2" height="2" />
-      <rect x="9" y="15" width="6" height="6" />
-    </svg>
-  );
-}
-
-function IkonMarket(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <path d="M6 8 h12 l-1 12 h-10 Z" />
-      <path d="M9 8 v-2 a3 3 0 0 1 6 0 v2" />
-    </svg>
-  );
-}
-
-function IkonSekreterya(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <rect x="3" y="5" width="18" height="16" rx="2" />
-      <line x1="3" y1="10" x2="21" y2="10" />
-      <line x1="8" y1="3" x2="8" y2="7" />
-      <line x1="16" y1="3" x2="16" y2="7" />
-    </svg>
   );
 }
 
