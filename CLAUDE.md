@@ -204,7 +204,7 @@ Giden webhook (proje `webhook_url`'ine): `mesaj.gonderildi`, `mesaj.teslim`, `me
 - Repolar üç ayrı GitHub hesabına dağılmış (asistan-merkezi org, hakansenipek, nukhetsenipek); monorepo öncesi tek org altında toplanmalı.
 - Ödeme tahsilatı sağlayıcısı seçilmedi; `/api/v1/kredi/yukleme-talebi` alt projeden "talep" kaydı oluşturuyor (yalnız tanımlı `kredi_paketleri`'nden, serbest tutar girilemiyor — bedava kredi kapısı riski API katmanında kapatıldı), ama onay/kredi ekleme hâlâ elle: panel Ödemeler ekranı henüz yok.
 - Meta Tech Provider başvurusu tamamlanmadı — WhatsApp hattı bu olmadan canlıya çıkamaz.
-- Alt proje "şirket bilgileri" senkronizasyonu: webhook + cache pull fallback planlandı, uygulanmadı.
+- Alt proje "şirket bilgileri" senkronizasyonu: push yönü `/api/v1/gonderen/senkron` ile ✅ (gonderen_ad/gonderen_adres/sms_basligi; bağlantı durumu alanlarına dokunmaz). Merkezin alt projeye dönüp cache pull fallback yapması hâlâ yok — hiçbir alt proje merkeze imzalı `/api/internal/*` ile bağlı değil.
 - Sızan `CRON_SECRET` yenilenip `MERKEZ_INTERNAL_SECRET` olarak her iki tarafa girilecek.
 
 ---
