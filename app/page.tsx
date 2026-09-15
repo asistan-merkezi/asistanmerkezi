@@ -1,6 +1,5 @@
 import Link from "next/link";
 import type { SVGProps } from "react";
-import { createClient } from "@/lib/supabase/server";
 import { MODULLER, IkonSosyalMedya, IkonSekreterya } from "@/lib/data/moduller";
 
 const ADIMLAR = [
@@ -41,29 +40,13 @@ const OZELLIKLER = [
   },
 ];
 
-export default async function Home() {
-  const supabase = await createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+// Panel girişini (/yonetim/mesaj) yalnız 3-5 kişilik ekip kullanıyor —
+// ana sayfanın birincil CTA'ları (header/hero/alt banner) bu yüzden
+// oturuma bakmaksızın her zaman genel "Ücretsiz Deneyin" akışına gider;
+// panel erişimi yalnız footer'daki küçük "Panel" linkinden.
+const DENEME_HREF = "/sektor-secimi";
 
-  let panelHref = "/dashboard";
-  if (session) {
-    const { data: profil } = await supabase
-      .from("profiles")
-      .select("rol")
-      .eq("id", session.user.id)
-      .single();
-    // Ekip rolleri (super_admin/destek) Mesaj Merkezi paneline gider
-    // (CLAUDE.md §6.4); kiracı kullanıcıları kendi paneline.
-    if (profil?.rol === "super_admin" || profil?.rol === "destek") {
-      panelHref = "/yonetim/mesaj";
-    }
-  }
-
-  const denemeHref = session ? panelHref : "/sektor-secimi";
-  const denemeEtiketi = session ? "Panele Git" : "Ücretsiz Deneyin";
-
+export default function Home() {
   return (
     <div className="flex flex-1 flex-col bg-brand-surface text-brand-text">
       <header className="sticky top-0 z-20 border-b border-brand-border bg-brand-surface/90 backdrop-blur-xl">
@@ -88,29 +71,18 @@ export default async function Home() {
             </a>
           </nav>
           <div className="flex items-center gap-2">
-            {session ? (
-              <Link
-                href={panelHref}
-                className="rounded-xl bg-brand-primary px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-primary-hover"
-              >
-                Panele Git
-              </Link>
-            ) : (
-              <>
-                <Link
-                  href="/login"
-                  className="rounded-xl px-4 py-2.5 text-sm font-semibold text-brand-text-secondary transition-colors hover:text-brand-text"
-                >
-                  Giriş Yap
-                </Link>
-                <Link
-                  href="/sektor-secimi"
-                  className="rounded-xl bg-brand-primary px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-primary-hover"
-                >
-                  Ücretsiz Deneyin
-                </Link>
-              </>
-            )}
+            <Link
+              href="/login"
+              className="rounded-xl px-4 py-2.5 text-sm font-semibold text-brand-text-secondary transition-colors hover:text-brand-text"
+            >
+              Giriş Yap
+            </Link>
+            <Link
+              href={DENEME_HREF}
+              className="rounded-xl bg-brand-primary px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-primary-hover"
+            >
+              Ücretsiz Deneyin
+            </Link>
           </div>
         </div>
       </header>
@@ -144,10 +116,10 @@ export default async function Home() {
               </p>
               <div className="mt-8 flex flex-wrap items-center gap-4">
                 <Link
-                  href={denemeHref}
+                  href={DENEME_HREF}
                   className="rounded-2xl bg-brand-primary px-7 py-3.5 text-base font-semibold text-white shadow-sm transition-all hover:bg-brand-primary-hover hover:shadow-md active:scale-[0.98]"
                 >
-                  {denemeEtiketi}
+                  Ücretsiz Deneyin
                 </Link>
                 <a
                   href="#moduller"
@@ -305,10 +277,10 @@ export default async function Home() {
                 </h2>
               </div>
               <Link
-                href={denemeHref}
+                href={DENEME_HREF}
                 className="shrink-0 rounded-2xl bg-white px-7 py-3.5 text-base font-semibold text-brand-primary shadow-sm transition-transform hover:scale-[1.02]"
               >
-                {session ? "Panele Git" : "Hemen Başlayın"}
+                Hemen Başlayın
               </Link>
             </div>
           </div>
@@ -336,11 +308,14 @@ export default async function Home() {
                 <a href="#moduller" className="text-sm text-brand-text-secondary transition-colors hover:text-brand-primary">
                   Modüller
                 </a>
-                <Link href="/sektor-secimi" className="text-sm text-brand-text-secondary transition-colors hover:text-brand-primary">
+                <Link href={DENEME_HREF} className="text-sm text-brand-text-secondary transition-colors hover:text-brand-primary">
                   Ücretsiz Deneyin
                 </Link>
                 <Link href="/login" className="text-sm text-brand-text-secondary transition-colors hover:text-brand-primary">
                   Giriş Yap
+                </Link>
+                <Link href="/yonetim/mesaj" className="text-sm text-brand-text-secondary transition-colors hover:text-brand-primary">
+                  Panel
                 </Link>
               </div>
             </div>
