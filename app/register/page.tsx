@@ -10,64 +10,78 @@ export default async function RegisterPage({
   const params = await searchParams;
 
   return (
-    <div className="flex flex-1 items-center justify-center bg-zinc-50 px-4 py-10 dark:bg-black">
-      <div className="w-full max-w-lg rounded-lg border border-black/[.08] bg-white p-8 dark:border-white/[.145] dark:bg-zinc-950">
-        <h1 className="mb-6 text-2xl font-semibold text-black dark:text-zinc-50">
-          Kayıt Ol
-        </h1>
+    <div className="flex flex-1 flex-col bg-brand-surface-alt">
+      <div className="mx-auto flex w-full max-w-7xl items-center px-4 py-6 lg:px-8">
+        <Link href="/" className="flex items-center gap-2">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-primary text-sm font-bold text-white">
+            A
+          </span>
+          <span className="text-lg font-bold tracking-tight text-brand-primary">
+            Asistan Merkezi
+          </span>
+        </Link>
+      </div>
 
-        {params.hata && (
-          <p className="mb-4 rounded bg-red-100 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
-            {params.hata}
+      <div className="flex flex-1 items-center justify-center px-4 pb-16">
+        <div className="w-full max-w-lg rounded-2xl border border-brand-border bg-brand-surface p-8 shadow-sm">
+          <h1 className="mb-1 text-2xl font-bold text-brand-text">Kayıt Ol</h1>
+          <p className="mb-6 text-sm text-brand-text-secondary">
+            30 gün ücretsiz deneme hesabınızı oluşturun, kredi kartı gerekmez.
           </p>
-        )}
 
-        <form action={register} className="flex flex-col gap-6">
-          <fieldset className="flex flex-col gap-4">
-            <legend className="mb-1 text-sm font-semibold text-black dark:text-zinc-50">
-              Kişisel Bilgiler
-            </legend>
-            <Alan id="adSoyad" etiket="Ad Soyad" />
-            <Alan id="gorev" etiket="Görev / Unvan" />
-            <Alan id="email" etiket="E-posta" tip="email" />
-            <Alan id="password" etiket="Şifre" tip="password" minLength={6} />
-          </fieldset>
+          {params.hata && (
+            <p className="mb-4 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">
+              {params.hata}
+            </p>
+          )}
 
-          <fieldset className="flex flex-col gap-4 border-t border-black/[.08] pt-6 dark:border-white/[.145]">
-            <legend className="mb-1 text-sm font-semibold text-black dark:text-zinc-50">
-              İşletme Bilgileri
-            </legend>
-            <Alan id="sirketAdi" etiket="Şirket Adı" />
-            <Alan id="vergiDairesi" etiket="Vergi Dairesi" />
-            <Alan
-              id="vergiNo"
-              etiket="Vergi No / TC Kimlik No"
-              inputMode="numeric"
-              pattern="\d{10,11}"
-            />
-          </fieldset>
+          <form action={register} className="flex flex-col gap-6">
+            <fieldset className="flex flex-col gap-4">
+              <legend className="mb-1 text-sm font-semibold text-brand-text">
+                Kişisel Bilgiler
+              </legend>
+              <Alan id="adSoyad" etiket="Ad Soyad" />
+              <Alan id="gorev" etiket="Görev / Unvan" />
+              <Alan id="email" etiket="E-posta" tip="email" />
+              <Alan id="password" etiket="Şifre" tip="password" minLength={6} />
+            </fieldset>
 
-          <TamYetkiliAlani />
+            <fieldset className="flex flex-col gap-4 border-t border-brand-border pt-6">
+              <legend className="mb-1 text-sm font-semibold text-brand-text">
+                İşletme Bilgileri
+              </legend>
+              <Alan id="sirketAdi" etiket="Şirket Adı" />
+              <Alan id="vergiDairesi" etiket="Vergi Dairesi" />
+              <Alan
+                id="vergiNo"
+                etiket="Vergi No / TC Kimlik No"
+                inputMode="numeric"
+                pattern="\d{10,11}"
+              />
+            </fieldset>
 
-          <label className="flex items-start gap-2 text-sm text-black dark:text-zinc-50">
-            <input type="checkbox" name="sozlesmeOnay" required className="mt-0.5 h-4 w-4" />
-            <span>Kullanım Sözleşmesi&apos;ni okudum, kabul ediyorum.</span>
-          </label>
+            <TamYetkiliAlani />
 
-          <button
-            type="submit"
-            className="mt-2 rounded-full bg-foreground px-5 py-2.5 font-medium text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc]"
-          >
-            Kayıt Ol
-          </button>
-        </form>
+            <label className="flex items-start gap-2 text-sm text-brand-text">
+              <input type="checkbox" name="sozlesmeOnay" required className="mt-0.5 h-4 w-4 accent-brand-primary" />
+              <span>Kullanım Sözleşmesi&apos;ni okudum, kabul ediyorum.</span>
+            </label>
 
-        <p className="mt-6 text-sm text-zinc-600 dark:text-zinc-400">
-          Zaten hesabın var mı?{" "}
-          <Link href="/login" className="font-medium text-black underline dark:text-zinc-50">
-            Giriş yap
-          </Link>
-        </p>
+            <button
+              type="submit"
+              className="mt-2 rounded-xl bg-brand-primary px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-primary-hover"
+            >
+              Kayıt Ol
+            </button>
+          </form>
+
+          <p className="mt-6 text-sm text-brand-text-secondary">
+            Zaten hesabın var mı?{" "}
+            <Link href="/login" className="font-semibold text-brand-primary hover:underline">
+              Giriş yap
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   );
@@ -90,7 +104,7 @@ function Alan({
 }) {
   return (
     <div className="flex flex-col gap-1">
-      <label htmlFor={id} className="text-sm text-zinc-600 dark:text-zinc-400">
+      <label htmlFor={id} className="text-sm font-medium text-brand-text-secondary">
         {etiket}
       </label>
       <input
@@ -101,7 +115,7 @@ function Alan({
         minLength={minLength}
         inputMode={inputMode}
         pattern={pattern}
-        className="rounded border border-black/[.08] bg-transparent px-3 py-2 text-black outline-none focus:border-black/30 dark:border-white/[.145] dark:text-zinc-50"
+        className="rounded-xl border border-brand-border bg-brand-surface px-3 py-2.5 text-sm text-brand-text outline-none transition-colors focus:border-brand-primary focus:ring-1 focus:ring-brand-primary"
       />
     </div>
   );
