@@ -9,10 +9,22 @@ export async function login(formData: FormData) {
   const password = formData.get("password") as string;
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
     redirect(`/login?hata=${encodeURIComponent(error.message)}`);
+  }
+
+  const { data: profil } = await supabase
+    .from("profiles")
+    .select("rol")
+    .eq("id", data.user.id)
+    .single();
+
+  // Ekip rolleri (super_admin/destek) Mesaj Merkezi paneline açık
+  // (CLAUDE.md §6.4); kiracı kullanıcıları kendi panellerine gider.
+  if (profil?.rol === "super_admin" || profil?.rol === "destek") {
+    redirect("/yonetim/mesaj");
   }
 
   redirect("/dashboard");

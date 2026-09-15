@@ -47,7 +47,21 @@ export default async function Home() {
     data: { session },
   } = await supabase.auth.getSession();
 
-  const denemeHref = session ? "/dashboard" : "/sektor-secimi";
+  let panelHref = "/dashboard";
+  if (session) {
+    const { data: profil } = await supabase
+      .from("profiles")
+      .select("rol")
+      .eq("id", session.user.id)
+      .single();
+    // Ekip rolleri (super_admin/destek) Mesaj Merkezi paneline gider
+    // (CLAUDE.md §6.4); kiracı kullanıcıları kendi paneline.
+    if (profil?.rol === "super_admin" || profil?.rol === "destek") {
+      panelHref = "/yonetim/mesaj";
+    }
+  }
+
+  const denemeHref = session ? panelHref : "/sektor-secimi";
   const denemeEtiketi = session ? "Panele Git" : "Ücretsiz Deneyin";
 
   return (
@@ -76,7 +90,7 @@ export default async function Home() {
           <div className="flex items-center gap-2">
             {session ? (
               <Link
-                href="/dashboard"
+                href={panelHref}
                 className="rounded-xl bg-brand-primary px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-primary-hover"
               >
                 Panele Git
