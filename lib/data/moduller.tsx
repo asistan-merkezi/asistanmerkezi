@@ -52,12 +52,6 @@ export const MODULLER: Modul[] = [
     ikon: IkonSekreterya,
   },
   {
-    ad: "Borsa & Piyasa Asistanı",
-    aciklama:
-      "Portföyünüzü ve piyasa hareketlerini yapay zekâ yorumuyla izleyin.",
-    ikon: IkonBorsa,
-  },
-  {
     ad: "Ev Ekonomisi",
     aciklama:
       "Hane bütçenizi ve harcamalarınızı tek yerden takip edin, tasarruf önerileri alın.",
@@ -142,15 +136,6 @@ export function IkonSekreterya(props: SVGProps<SVGSVGElement>) {
       <line x1="3" y1="10" x2="21" y2="10" />
       <line x1="8" y1="3" x2="8" y2="7" />
       <line x1="16" y1="3" x2="16" y2="7" />
-    </svg>
-  );
-}
-
-export function IkonBorsa(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <polyline points="3,17 9,11 13,15 21,6" />
-      <polyline points="15,6 21,6 21,12" />
     </svg>
   );
 }

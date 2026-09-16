@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Asistan Merkezi — Sektörel Yapay Zekâ Asistan Modülleri",
   description:
-    "Catering, klinik, okul, otel, market, borsa ve dijital pazarlama için yapay zekâ destekli mikro-asistan modülleri. 30 gün ücretsiz deneyin.",
+    "Catering, klinik, okul, otel, market ve dijital pazarlama için yapay zekâ destekli mikro-asistan modülleri. 30 gün ücretsiz deneyin.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

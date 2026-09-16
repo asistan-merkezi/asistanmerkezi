@@ -30,7 +30,7 @@
 
 ## 3. Modül Haritası
 
-Resmî tanıtım listesi (10 modül). Hub'ın modül listesi bu tabloyla birebir eşleşir.
+Resmî tanıtım listesi (9 modül). Hub'ın modül listesi bu tabloyla birebir eşleşir.
 Durum kolonu iç yol haritasını yansıtır; hub'ın herkese açık ana sayfası
 henüz hiçbir modül canlı olmadığı için tümünü tek tip "Geliştirmede"
 rozetiyle gösterir (bkz. §8/§9 — Klinik önceliği bu iç durumla ilgilidir,
@@ -45,11 +45,14 @@ kamuya açık rozetle değil).
 | 5 | Market & Tekel | — | Planlandı |
 | 6 | Mağaza & Butik | — | Planlandı |
 | 7 | Sekreterya / Arama / Randevu Takip | — | Planlandı |
-| 8 | Borsa & Piyasa Asistanı | borsaasistan.com | Geliştirmede |
-| 9 | Ev Ekonomisi | — | Geliştirmede |
-| 10 | Sosyal Medya & Dijital Pazarlama | medyaasistan.com | Geliştirmede |
+| 8 | Ev Ekonomisi | — | Geliştirmede |
+| 9 | Sosyal Medya & Dijital Pazarlama | medyaasistan.com | Geliştirmede |
+
+Borsa & Piyasa Asistanı iptal edildi (2026-09-16); `borsaasistan.com` artık kullanılmıyor.
 
 Bu liste aynı zamanda mesaj merkezindeki **kategori** hiyerarşisinin kaynağıdır (§6.2).
+`asistan_mesaj.kategoriler` içindeki `'Borsa & Ev Ekonomisi'` (slug `borsa`) satırı henüz
+güncellenmedi — DB tarafı bu iptalden ayrı bir kapsam olarak bekliyor.
 
 ## 4. Veri Modeli
 
