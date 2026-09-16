@@ -1,6 +1,10 @@
 import { Inter } from "next/font/google";
 import { requirePersonel } from "@/lib/yetki";
+import { createMesajClient } from "@/lib/supabase/mesaj-server";
 import { PanelSidebar } from "./_bilesenler/sidebar";
+import { MobilUstBar } from "./_bilesenler/mobil-ust-bar";
+import { MobilAltNav } from "./_bilesenler/mobil-alt-nav";
+import { operatorBasHarfleri } from "./_bilesenler/operator";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-panel" });
 
@@ -9,7 +13,22 @@ export default async function MesajPaneliLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { email, rol } = await requirePersonel();
+  const { email, rol, adSoyad } = await requirePersonel();
+
+  // Mobil üst bardaki bildirim rozeti için genel bakış sayfasındaki "Dikkat
+  // Gerektirenler" ile aynı gerçek sinyaller — bağlı olmayan WhatsApp kimliği
+  // veya eşiğin altına inmiş kredi cüzdanı.
+  const supabase = await createMesajClient();
+  const [{ count: bagliDegilSayisi }, { data: cuzdanlar }] = await Promise.all([
+    supabase
+      .from("gonderen_kimlikleri")
+      .select("*", { count: "exact", head: true })
+      .eq("kanal", "whatsapp")
+      .neq("baglanti_durumu", "connected"),
+    supabase.from("kredi_cuzdanlari").select("bakiye, esik").limit(200),
+  ]);
+  const dusukBakiyeSayisi = (cuzdanlar ?? []).filter((c) => c.bakiye < c.esik).length;
+  const dikkatVar = (bagliDegilSayisi ?? 0) + dusukBakiyeSayisi > 0;
 
   return (
     <div className={`${inter.variable} font-sans`}>
@@ -20,8 +39,8 @@ export default async function MesajPaneliLayout({
       />
       <div className="min-h-screen bg-panel-canvas text-panel-text">
         <PanelSidebar />
-        <div className="pl-60">
-          <header className="fixed left-60 right-0 top-0 z-40 flex h-14 items-center justify-between border-b border-panel-border bg-panel-surface px-6">
+        <div className="md:pl-60">
+          <header className="fixed left-60 right-0 top-0 z-40 hidden h-14 items-center justify-between border-b border-panel-border bg-panel-surface px-6 md:flex">
             <div className="flex items-center gap-2">
               <span className="material-symbols-outlined text-[20px] text-panel-text-secondary">
                 hub
@@ -59,10 +78,12 @@ export default async function MesajPaneliLayout({
               </div>
             </div>
           </header>
-          <main className="pt-14">
-            <div className="mx-auto max-w-[1400px] p-6">{children}</div>
+          <MobilUstBar operatorBasHarfleri={operatorBasHarfleri(adSoyad, email)} dikkatVar={dikkatVar} />
+          <main className="pb-20 md:pb-0 md:pt-14">
+            <div className="mx-auto max-w-[1400px] p-4 md:p-6">{children}</div>
           </main>
         </div>
+        <MobilAltNav />
       </div>
     </div>
   );

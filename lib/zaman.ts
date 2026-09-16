@@ -46,3 +46,11 @@ export function istanbulAyBaslangici(tarih: Date = new Date()): Date {
   const baslangicUtcTemsili = Date.UTC(trt.getUTCFullYear(), trt.getUTCMonth(), 1, 0, 0, 0, 0);
   return new Date(baslangicUtcTemsili - TRT_OFSET_MS);
 }
+
+// React Server Component render gövdesinde doğrudan `Date.now()`/`new Date()`
+// çağırmak "impure function" lint hatası verir (react-hooks/purity) — bu
+// yüzden "N saat önce" hesabı da istanbulGunBaslangici gibi burada, varsayılan
+// parametre içinde yapılıyor.
+export function saatOncesi(saat: number, tarih: Date = new Date()): Date {
+  return new Date(tarih.getTime() - saat * 60 * 60 * 1000);
+}

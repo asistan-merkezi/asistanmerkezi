@@ -2,24 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-
-const NAV_OGELERI = [
-  { yol: "/yonetim/mesaj", etiket: "Genel Bakış", ikon: "dashboard", hazir: true },
-  { yol: "/yonetim/mesaj/kategoriler", etiket: "Kategoriler", ikon: "category", hazir: true },
-  { yol: "/yonetim/mesaj/projeler", etiket: "Projeler", ikon: "folder_open", hazir: false },
-  { yol: "/yonetim/mesaj/kullanicilar", etiket: "Kullanıcılar", ikon: "group", hazir: true },
-  { yol: "/yonetim/mesaj/mesaj-gunlugu", etiket: "Mesaj Günlüğü", ikon: "receipt_long", hazir: true },
-  { yol: "/yonetim/mesaj/odemeler", etiket: "Ödemeler", ikon: "payments", hazir: false },
-  { yol: "/yonetim/mesaj/sablonlar", etiket: "Şablonlar", ikon: "drafts", hazir: false },
-  { yol: "/yonetim/mesaj/zamanlayici", etiket: "Zamanlayıcı", ikon: "schedule", hazir: false },
-  { yol: "/yonetim/mesaj/sistem", etiket: "Sistem", ikon: "settings", hazir: false },
-] as const;
+import { NAV_OGELERI } from "./nav-ogeleri";
 
 export function PanelSidebar() {
   const yol = usePathname();
 
   return (
-    <aside className="fixed left-0 top-0 z-50 flex h-screen w-60 flex-col justify-between border-r border-panel-sidebar-border bg-panel-sidebar">
+    <aside className="fixed left-0 top-0 z-50 hidden h-screen w-60 flex-col justify-between border-r border-panel-sidebar-border bg-panel-sidebar md:flex">
       <div className="flex flex-col">
         <div className="flex h-14 items-center gap-2 border-b border-panel-sidebar-border px-4">
           <span className="material-symbols-outlined text-panel-primary-hover text-[22px]" style={{ color: "#2DD4BF" }}>

@@ -18,7 +18,7 @@ export async function requirePersonel() {
 
   const { data: profil } = await supabase
     .from("profiles")
-    .select("rol, email")
+    .select("rol, email, ad_soyad")
     .eq("id", user.id)
     .single();
 
@@ -30,5 +30,6 @@ export async function requirePersonel() {
     userId: user.id,
     rol: profil.rol as "super_admin" | "destek",
     email: profil.email as string,
+    adSoyad: profil.ad_soyad as string | null,
   };
 }
