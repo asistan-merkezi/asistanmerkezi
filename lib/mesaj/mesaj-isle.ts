@@ -16,6 +16,7 @@ export type TekMesajGovde = {
   sablonAdi?: string;
   degiskenler?: Record<string, unknown>;
   planlananZaman?: string;
+  kaynakBolum?: string;
 };
 
 // /mesaj/gonder ve /mesaj/toplu arasında paylaşılan tek-mesaj işleme mantığı
@@ -76,6 +77,7 @@ export async function tekMesajiIsle(
           icerik: govde.icerik ?? null,
           sablon_adi: govde.sablonAdi ?? null,
           degiskenler: govde.degiskenler ?? null,
+          kaynak_bolum: govde.kaynakBolum ?? null,
           durum: "iys_rejected",
           idempotency_anahtari: idempotencyAnahtari,
         })
@@ -112,6 +114,7 @@ export async function tekMesajiIsle(
       icerik: govde.icerik ?? null,
       sablon_adi: govde.sablonAdi ?? null,
       degiskenler: govde.degiskenler ?? null,
+      kaynak_bolum: govde.kaynakBolum ?? null,
       durum: "pending",
       planlanan_zaman: planlananZaman.toISOString(),
       idempotency_anahtari: idempotencyAnahtari,

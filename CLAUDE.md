@@ -121,7 +121,7 @@ Hiyerarşi: **kategori → proje → proje kullanıcısı → gönderen kimliği
 | `kredi_cuzdanlari` | Defterin kendisi: kanal bazlı bakiye + `bakiye_versiyonu` |
 | `kredi_hareketleri` | `kanal`, `miktar` (+/-), `sebep` (yukleme/rezervasyon/kesinlesme/iade), `odeme_id` |
 | `kredi_paketleri` / `odemeler` | Paket tanımları; ödeme günü, tutar, sağlayıcı ref, durum |
-| `mesaj_istekleri` | `kanal`, `alici_hash`, `alici_maskeli`, `icerik`, `durum` (pending/queued/sent/failed/iys_rejected), `oncelik`, `planlanan_zaman`, `dis_mesaj_id`, `hata_kodu` |
+| `mesaj_istekleri` | `kanal`, `alici_hash`, `alici_maskeli`, `icerik`, `durum` (pending/queued/sent/failed/iys_rejected), `oncelik`, `planlanan_zaman`, `dis_mesaj_id`, `hata_kodu`, `kaynak_bolum` (opsiyonel — alt projenin hangi iç modülü/ekranı tetikledi, ör. "randevu_hatirlatma"; Mesaj Günlüğü panelinde proje→kanal drill-down'unda saatlik kırılım için) |
 | `mesaj_loglari` | Sonuç + teslim (webhook'la güncellenir), `dusen_kredi`, `icerik_hash`, `icerik_silinme_tarihi` |
 | `iys_izinleri` | `alici_hash`, `kanal`, `durum` (PERMIT/REFUSE), `kaynak`, `son_kontrol` |
 | `whatsapp_sablonlari` | `sablon_adi`, `dil`, `durum` — Meta webhook'uyla senkron |
@@ -160,12 +160,14 @@ Yalnızca Asistan Merkezi ekibine açıktır; kiracılar buraya giriş yapmaz, k
 | Kategoriler | 8 kategori kartı → kategori toplamı → proje listesi (drill-down) |
 | Projeler | Kullanıcı listesi, API key durumu, webhook sağlığı, kanal bağlantıları |
 | Kullanıcılar | Gün/ay/yıl kırılımlı kullanım + cari (bakiye, yükleme geçmişi) aynı ekranda |
-| Mesaj Günlüğü | Kanal/durum/tarih filtresi, maskeli alıcı, hata kodu, sağlayıcı yanıtı |
+| Mesaj Günlüğü | İki sekme — **Bağlantılar** (kanal başına, SMS/WhatsApp/E-posta/Telegram: tüm projelerdeki gönderen kimliği bağlantı durumu) ve **Projeler** (kategori kutucukları → proje kutucukları → kanal kutucukları → seçili proje+kanal için mesaj dökümü: saat, kaynak bölüm, maskeli alıcı, durum, hata kodu, sağlayıcı yanıtı) |
 | Ödemeler | Ödeme günü, tutar, eklenen paket, manuel kredi ekleme (audit'li, yalnız `super_admin`) |
 | Şablonlar / Zamanlayıcı / Sistem | WhatsApp şablon durumları; planlı görevler + son çalışmalar + elle tetikleme; audit log, webhook olayları |
 
 ### 6.5 API yüzeyi (`/api/v1`)
 `POST /mesaj/gonder` (Idempotency-Key zorunlu) · `POST /mesaj/toplu` (≤1000 alıcı) · `GET /mesaj/:id` · `GET /kredi/bakiye` · `POST /kredi/yukleme-talebi` · `POST /kullanici/senkron` · `POST /whatsapp/baglanti`
+
+`/mesaj/gonder` ve `/mesaj/toplu` gövdesinde opsiyonel `kaynakBolum` alanı kabul edilir — alt proje gönderimi tetikleyen kendi iç modülünü/ekranını serbest metinle etiketleyebilir (ör. `"randevu_hatirlatma"`). Doldurulmazsa `null` kalır; mevcut alt proje entegrasyonları etkilenmez.
 
 Giden webhook (proje `webhook_url`'ine): `mesaj.gonderildi`, `mesaj.teslim`, `mesaj.basarisiz`, `kredi.esik_alti`.
 
@@ -211,4 +213,4 @@ Giden webhook (proje `webhook_url`'ine): `mesaj.gonderildi`, `mesaj.teslim`, `me
 - Sızan `CRON_SECRET` yenilenip `MERKEZ_INTERNAL_SECRET` olarak her iki tarafa girilecek.
 
 ---
-Son güncelleme: 2026-09-14
+Son güncelleme: 2026-09-21
