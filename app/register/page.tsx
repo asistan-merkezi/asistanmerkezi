@@ -26,7 +26,7 @@ export default async function RegisterPage({
         <div className="w-full max-w-lg rounded-2xl border border-brand-border bg-brand-surface p-8 shadow-sm">
           <h1 className="mb-1 text-2xl font-bold text-brand-text">Kayıt Ol</h1>
           <p className="mb-6 text-sm text-brand-text-secondary">
-            30 gün ücretsiz deneme hesabınızı oluşturun, kredi kartı gerekmez.
+            21 gün ücretsiz deneme hesabınızı oluşturun, kredi kartı gerekmez.
           </p>
 
           {params.hata && (

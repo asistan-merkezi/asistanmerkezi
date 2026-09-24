@@ -16,7 +16,7 @@
 | Katman | Seçim | Not |
 |---|---|---|
 | Frontend | Next.js 16.3.5 (App Router) + React 19.2.8 + TypeScript + Tailwind CSS | Türkçe arayüz varsayılan; istek öncesi mantık `proxy.ts`'te (Next.js 16'da `middleware.ts` yerine geçti) |
-| Veritabanı | Supabase / PostgreSQL (Pro Plan) | Frankfurt region |
+| Veritabanı | Supabase / PostgreSQL (Pro Plan) | Frankfurt region — **Vodafone Cloud Türkiye (kiralık yerel sunucu) taşıması planlandı, hedef 2026-09-28 haftası**; ana sayfadaki "veriler yurt içinde saklanır" iddiası bu taşımaya dayanır |
 | Hosting | Vercel | Her modül ayrı Vercel projesi |
 | DNS / Trafik | Cloudflare | Modüller ayrı domainlerde, subdomain değil |
 | E-posta | Resend | EU region |
@@ -79,7 +79,7 @@ Landing (tanıtım + giriş/kayıt/şifremi unuttum + kullanım kılavuzu PDF) �
 Kayıtta tam yetkiliye bilgilendirme + onay linkli mail gider. Onay gelmeden de deneme başlar; ancak onaysız hesapta **ödeme, hesap silme ve yetki devri** işlemleri kısıtlıdır.
 
 ### 5.3 Deneme süresi
-- Her yeni kiracıya otomatik 30 gün.
+- Her yeni kiracıya otomatik 30 gün (DB varsayılanı). Tanıtım metinleri (ana sayfa, kayıt sayfası, meta açıklama) 2026-09-24 itibarıyla "21 gün" diyor — site henüz kullanımda değil, sistem bilinçli olarak değiştirilmedi; canlıya çıkmadan önce ikisi eşitlenmeli.
 - Kalan gün sayısı panelde sürekli görünür.
 - Abonelik başlayınca trial verileri kaldığı yerden devam eder; sıfırlama yok.
 

@@ -5,21 +5,21 @@ import { MODULLER, IkonSosyalMedya, IkonSekreterya } from "@/lib/data/moduller";
 const ADIMLAR = [
   {
     baslik: "Sektörünüzü Seçin, Kayıt Olun",
-    aciklama: "İşletme bilgilerinizi girin; kredi kartı istemeden 30 günlük deneme hesabınız hemen açılır.",
+    aciklama: "İşletme bilgilerinizi girin; kredi kartı istemeden 21 günlük deneme hesabınız hemen açılır.",
   },
   {
-    baslik: "30 Gün Ücretsiz Deneyin",
+    baslik: "21 Gün Ücretsiz Deneyin",
     aciklama: "Modülü gerçek verilerinizle test edin. Abonelik başlamadan hiçbir ücret alınmaz.",
   },
   {
     baslik: "İletişim Kanallarınızı Bağlayın",
-    aciklama: "WhatsApp, SMS, e-posta ve Telegram bildirimlerini tek kimlikle etkinleştirin.",
+    aciklama: "WhatsApp, SMS, e-posta ve Telegram bildirimlerini kendi işletme kimliğinizle etkinleştirin.",
   },
 ];
 
 const OZELLIKLER = [
   {
-    baslik: "30 Gün Ücretsiz Deneme",
+    baslik: "21 Gün Ücretsiz Deneme",
     aciklama: "Kart bilgisi istemeden başlar; abonelik başlayınca kaldığınız yerden devam eder.",
     ikon: IkonCheck,
   },
@@ -30,7 +30,7 @@ const OZELLIKLER = [
   },
   {
     baslik: "SMS · WhatsApp · E-posta · Telegram",
-    aciklama: "Tüm modüllerin müşteri bildirimleri ortak mesaj merkezinden, tek kimlikle gönderilir.",
+    aciklama: "Tüm mesajlar, ortak mesaj merkezi üzerinden işletmenizin kendi gönderen kimliği ve adıyla iletilir.",
     ikon: IkonSosyalMedya,
   },
   {
@@ -110,7 +110,7 @@ export default function Home() {
                 <span className="text-brand-primary">sektörünüze özel.</span>
               </h1>
               <p className="mt-6 max-w-xl text-lg leading-relaxed text-brand-text-secondary">
-                {MODULLER.length} farklı sektör için tasarlanan, 30 gün
+                {MODULLER.length} farklı sektör için tasarlanan, 21 gün
                 ücretsiz denemeli asistan modülleriyle operasyonunuzu tek
                 merkezden yürütün.
               </p>
@@ -261,6 +261,17 @@ export default function Home() {
                 </div>
               ))}
             </div>
+            <div className="mt-10 flex items-start gap-4 rounded-2xl border border-brand-border bg-brand-surface p-5 sm:items-center">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-primary-tint text-brand-primary">
+                <IkonKalkan className="h-5 w-5" />
+              </span>
+              <div>
+                <h3 className="text-base font-semibold text-brand-text">Verileriniz Türkiye&apos;de</h3>
+                <p className="mt-1 text-sm leading-relaxed text-brand-text-secondary">
+                  Tüm veriler yurt içindeki yerel sunucularda, KVKK&apos;ya uygun şekilde güvenle saklanmaktadır.
+                </p>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -270,7 +281,7 @@ export default function Home() {
             <div className="flex flex-col items-center justify-between gap-6 rounded-2xl bg-brand-primary px-8 py-10 text-center sm:flex-row sm:text-left">
               <div>
                 <span className="mb-2 block text-xs font-bold uppercase tracking-wider text-brand-primary-tint">
-                  14 Günlük Deneme Değil, 30 Gün
+                  14 Günlük Deneme Değil, 21 Gün
                 </span>
                 <h2 className="text-2xl font-bold text-white">
                   İşletmeniz İçin Doğru Asistanı Birlikte Seçelim
@@ -324,7 +335,7 @@ export default function Home() {
             <span>© {new Date().getFullYear()} Asistan Merkezi</span>
             <span className="flex items-center gap-1.5">
               <IkonKalkan className="h-4 w-4 text-brand-primary" />
-              KVKK uyumlu, kiracı bazlı veri izolasyonu
+              KVKK uyumlu · Veriler yurt içinde saklanır
             </span>
           </div>
         </div>
