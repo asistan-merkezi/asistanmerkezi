@@ -15,7 +15,7 @@ export default async function ProjelerSayfasi({
       .select("id, ad, slug, sira")
       .eq("aktif", true)
       .order("sira"),
-    supabase.from("projeler").select("id, ad, kategori_id, aktif, domain, webhook_url, api_key_hash"),
+    supabase.from("projeler").select("id, ad, slug, kategori_id, aktif, domain, webhook_url, api_key_hash"),
     supabase.from("proje_kullanicilari").select("proje_id"),
   ]);
 
@@ -89,15 +89,13 @@ export default async function ProjelerSayfasi({
                   </span>
                   <h2 className="text-lg font-semibold text-panel-text">{secili.ad}</h2>
                 </div>
-                <button
-                  type="button"
-                  disabled
-                  className="flex items-center gap-1.5 rounded-lg bg-panel-primary/40 px-3 py-2 text-sm font-medium text-white cursor-not-allowed"
-                  title="Proje ekleme akışı henüz uygulanmadı"
+                <Link
+                  href={`/yonetim/mesaj/projeler/yeni?kategori=${secili.slug}`}
+                  className="flex items-center gap-1.5 rounded-lg bg-panel-primary px-3 py-2 text-sm font-medium text-white"
                 >
                   <span className="material-symbols-outlined text-[16px]">add</span>
                   Proje Ekle
-                </button>
+                </Link>
               </div>
 
               <div className="mb-6 flex items-center gap-6 text-sm">
@@ -137,7 +135,12 @@ export default async function ProjelerSayfasi({
                     {seciliProjeler.map((p) => (
                       <tr key={p.id}>
                         <td className="py-2 text-panel-text">
-                          {p.ad}
+                          <Link
+                            href={`/yonetim/mesaj/projeler/${p.slug}`}
+                            className="font-medium hover:text-panel-primary"
+                          >
+                            {p.ad}
+                          </Link>
                           {p.domain && (
                             <span className="block text-xs text-panel-text-secondary">{p.domain}</span>
                           )}
