@@ -115,8 +115,9 @@ Hiyerarşi: **kategori → proje → proje kullanıcısı → gönderen kimliği
 
 | Tablo | Amaç / kritik alanlar |
 |---|---|
-| `kategoriler` | §3'teki 10 modül: `ad`, `slug`, `sira`, `aktif` |
-| `projeler` | Alt proje: `kategori_id`, `slug`, `domain`, `api_key_hash`, `webhook_url`, `aktif` |
+| `kategoriler` | §3'teki modüller + **Özel Proje** (slug `ozel-proje`): `ad`, `slug`, `sira`, `aktif` |
+| `projeler` | Alt proje: `kategori_id`, `slug`, `domain`, `api_key_hash`, `webhook_url`, `aktif`. Oluşturma/anahtar yenileme/güncelleme yalnız `proje_olustur` / `proje_anahtar_yenile` / `proje_guncelle` RPC'leriyle (`super_admin`, audit'li); API anahtarı (`amk_…`) ekranda bir kez gösterilir, DB'ye yalnız SHA-256 hash'i gider; `X-Imza` aynı anahtarla atılır |
+| `saglayici_ayarlari` | Kanal başına (`sms`/`whatsapp`/`eposta`/`telegram`/`odeme`) sağlayıcı bağlantısı: `saglayici`, `aktif`, `api_url`, `api_versiyonu`, `ayarlar` (gizli olmayan alanlar), `gizli_referanslari` (Vault secret id'leri). Yazma yalnız `kanal_ayari_kaydet` RPC'siyle (`super_admin`, audit'li); sır okuma `kanal_gizli_oku` yalnız `service_role` |
 | `proje_kullanicilari` | Mesajı tetikleyen kiracı: `dis_kullanici_id`, `ad`, `eposta`, `telefon` — UNIQUE(`proje_id`,`dis_kullanici_id`) |
 | `gonderen_kimlikleri` | kullanıcı ↔ kanal ↔ teknik kimlik. WhatsApp: `waba_id`, `phone_number_id`, `baglanti_durumu` (pending/connected/revoked); E-posta: `gonderen_ad/adres`; SMS: `sms_basligi`; Telegram: `bot_token` (şifreli) |
 | `kredi_cuzdanlari` | Defterin kendisi: kanal bazlı bakiye + `bakiye_versiyonu` |
@@ -158,12 +159,11 @@ Yalnızca Asistan Merkezi ekibine açıktır; kiracılar buraya giriş yapmaz, k
 | Ekran | İçerik |
 |---|---|
 | Genel Bakış | Bugün/bu ay gönderim, kanal kırılımı, hata oranı, düşük bakiye ve kopan WhatsApp bağlantısı uyarıları |
-| Kategoriler | 8 kategori kartı → kategori toplamı → proje listesi (drill-down) |
-| Projeler | Kullanıcı listesi, API key durumu, webhook sağlığı, kanal bağlantıları |
-| Kullanıcılar | Gün/ay/yıl kırılımlı kullanım + cari (bakiye, yükleme geçmişi) aynı ekranda |
-| Mesaj Günlüğü | İki sekme — **Bağlantılar** (kanal başına, SMS/WhatsApp/E-posta/Telegram: tüm projelerdeki gönderen kimliği bağlantı durumu) ve **Projeler** (kategori kutucukları → proje kutucukları → kanal kutucukları → seçili proje+kanal için mesaj dökümü: saat, kaynak bölüm, maskeli alıcı, durum, hata kodu, sağlayıcı yanıtı) |
+| Projeler | Kategori listesi (proje sayılarıyla) → seçili kategorinin projeleri (kullanıcı sayısı, API anahtarı/webhook durumu). Proje sayfasında: ayarlar, API anahtarı üretme/yenileme, sisteme bağlantı kodları (env, `merkez-client.ts` örneği, uç noktalar). "Proje Ekle" kategoriye bağlı. `/kategoriler` bu ekrana yönlenir |
+| Kullanıcılar | Kullanıcı listesi (kategori sütunu + kategori filtresi, bakiye, WhatsApp durumu); gün/ay/yıl kırılımı ve yükleme geçmişi henüz yok |
+| Mesaj Takibi (`/mesaj-gunlugu`) | İki sekme — **Bağlantılar** (kanal başına, SMS/WhatsApp/E-posta/Telegram: tüm projelerdeki gönderen kimliği bağlantı durumu) ve **Projeler** (kategori kutucukları → proje kutucukları → kanal kutucukları → seçili proje+kanal için mesaj dökümü: saat, kaynak bölüm, maskeli alıcı, durum, hata kodu, sağlayıcı yanıtı) |
 | Finans | Alt bölümler: **Ödemeler** (ödeme günü, tutar, eklenen paket, manuel kredi ekleme — audit'li, yalnız `super_admin`), Personel, Gelen Faturalar, Giderler, Raporlar (son dördü "Yakında") |
-| Şablonlar / Zamanlayıcı / Sistem | WhatsApp şablon durumları; planlı görevler + son çalışmalar + elle tetikleme; audit log, webhook olayları |
+| Sistem | **Bağlantı Ayarları** (SMS/WhatsApp/E-posta/Telegram/Ödeme: sağlayıcı, API adresi ve versiyonu, kimlik bilgileri — sırlar Vault'ta, geri okunamaz —, webhook dönüş adresi; `/sistem/baglanti-ayarlari/<kanal>`), **Şablonlar** (WhatsApp şablon durumları, "Yakında"), **Zamanlayıcı** (planlı görevler + son çalışmalar + elle tetikleme, "Yakında"); audit log ve webhook olayları sonra |
 
 ### 6.5 API yüzeyi (`/api/v1`)
 `POST /mesaj/gonder` (Idempotency-Key zorunlu) · `POST /mesaj/toplu` (≤1000 alıcı) · `GET /mesaj/:id` · `GET /kredi/bakiye` · `POST /kredi/yukleme-talebi` · `POST /kullanici/senkron` · `POST /whatsapp/baglanti`
@@ -189,7 +189,7 @@ Giden webhook (proje `webhook_url`'ine): `mesaj.gonderildi`, `mesaj.teslim`, `me
 | Faz | Kapsam |
 |---|---|
 | Faz 1 | Hub landing + 10 modül tanıtımı + merkezi kayıt/giriş |
-| Faz 2 | **Mesaj Merkezi MVP:** `asistan_mesaj` şeması + RLS ✅, kredi rezervasyonu ✅, QStash `QueueAdapter` (arayüz hazır, gerçek bağlantı bekliyor — Upstash hesabı yok), Vault, webhook imzası (yalnız alt proje→merkez yönü ✅, sağlayıcı webhook'ları henüz yok), İYS cache (tablo + okuma ✅, dış senkron yok), idempotency ✅, maskeleme ✅, 90 gün redaksiyon, audit (telefon görüntüleme + manuel kredi ✅, genel kapsam eksik); panelin Genel Bakış / Kategoriler / Kullanıcılar / Mesaj Günlüğü ekranları ✅ |
+| Faz 2 | **Mesaj Merkezi MVP:** `asistan_mesaj` şeması + RLS ✅, kredi rezervasyonu ✅, QStash `QueueAdapter` (arayüz hazır, gerçek bağlantı bekliyor — Upstash hesabı yok), Vault, webhook imzası (yalnız alt proje→merkez yönü ✅, sağlayıcı webhook'ları henüz yok), İYS cache (tablo + okuma ✅, dış senkron yok), idempotency ✅, maskeleme ✅, 90 gün redaksiyon, audit (telefon görüntüleme + manuel kredi ✅, genel kapsam eksik); panelin Genel Bakış / Projeler / Kullanıcılar / Mesaj Takibi / Sistem›Bağlantı Ayarları ekranları ✅ |
 | Faz 3 | Trial motoru, salt-okunur mod, retention bildirimleri |
 | Faz 4 | Ortak modüller (personel, muhasebe, randevu) paylaşıma açılır |
 | Faz 5 | Monorepo geçişi (pnpm workspaces + Turborepo) |
@@ -201,17 +201,17 @@ Giden webhook (proje `webhook_url`'ine): `mesaj.gonderildi`, `mesaj.teslim`, `me
 - [x] Ortak onboarding/trial deseninin tanımlanması
 - [x] Ortak personel modülü tasarımı (4 sekme, 12 tablo)
 - [ ] Hub modül listesinin tanıtım PDF'iyle eşitlenmesi
-- [ ] **Mesaj Merkezi Faz 1** — (1) `asistan_mesaj` migration'ı ✅, (2) `/api/v1` API yüzeyi ✅ (`mesaj/gonder`, `mesaj/toplu`, `mesaj/:id`, `kredi/bakiye`, `kredi/yukleme-talebi`, `kullanici/senkron` — yalnız `whatsapp/baglanti` bekliyor, Meta Tech Provider önkoşulu), (3) panel ekranları ✅ (Genel Bakış/Kategoriler/Kullanıcılar/Mesaj Günlüğü — Faz 2'den erken taşındı; Projeler/Ödemeler/Şablonlar/Zamanlayıcı/Sistem sidebar'da "Yakında"), (4) klinik `merkez-client.ts`'in bağlanması — sıradaki (klinik repo eldeyken)
+- [ ] **Mesaj Merkezi Faz 1** — (1) `asistan_mesaj` migration'ı ✅, (2) `/api/v1` API yüzeyi ✅ (`mesaj/gonder`, `mesaj/toplu`, `mesaj/:id`, `kredi/bakiye`, `kredi/yukleme-talebi`, `kullanici/senkron` — yalnız `whatsapp/baglanti` bekliyor, Meta Tech Provider önkoşulu), (3) panel ekranları ✅ (Genel Bakış/Projeler/Kullanıcılar/Mesaj Takibi/Sistem›Bağlantı Ayarları — Faz 2'den erken taşındı; Finans alt bölümleri ve Sistem›Şablonlar/Zamanlayıcı "Yakında"), (4) klinik `merkez-client.ts`'in bağlanması — sıradaki (klinik repo eldeyken)
 - [x] Kayıt formunun §5.1 kapsamına tamamlanması (kişisel/işletme bilgileri, vergi no, görev, tam yetkili, sözleşme onayı — `core.tenants` + `core.profiles.ad_soyad`); tam yetkiliye onay-linkli mail (§5.2) Resend kurulana kadar gönderilmiyor
 - [ ] Klinik Asistanı'nın tamamlanması — **öncelik**; klinik mesaj modülü merkeze bağlı olduğu için Mesaj Merkezi Faz 1 bunun önkoşuludur, rakibi değil
 - [ ] Monorepo geçişi — bilinçli olarak ertelendi, klinik bitince ele alınacak
 
 **Açık sorunlar:**
 - Repolar üç ayrı GitHub hesabına dağılmış (asistan-merkezi org, hakansenipek, nukhetsenipek); monorepo öncesi tek org altında toplanmalı.
-- Ödeme tahsilatı sağlayıcısı seçilmedi; `/api/v1/kredi/yukleme-talebi` alt projeden "talep" kaydı oluşturuyor (yalnız tanımlı `kredi_paketleri`'nden, serbest tutar girilemiyor — bedava kredi kapısı riski API katmanında kapatıldı), ama onay/kredi ekleme hâlâ elle: panel Ödemeler ekranı henüz yok.
+- Ödeme tahsilatı sağlayıcısı seçilmedi; `/api/v1/kredi/yukleme-talebi` alt projeden "talep" kaydı oluşturuyor (yalnız tanımlı `kredi_paketleri`'nden, serbest tutar girilemiyor — bedava kredi kapısı riski API katmanında kapatıldı), ama onay/kredi ekleme hâlâ elle: panel Finans›Ödemeler ekranı henüz yok (yer tutucu). Kanal bağlantı ekranları (Sistem›Bağlantı Ayarları) sağlayıcı ayarını saklıyor ama gönderim kodu bu ayarları henüz okumuyor, webhook uç noktaları (`/api/webhooks/*`) ve "bağlantıyı test et" yok.
 - Meta Tech Provider başvurusu tamamlanmadı — WhatsApp hattı bu olmadan canlıya çıkamaz.
 - Alt proje "şirket bilgileri" senkronizasyonu: push yönü `/api/v1/gonderen/senkron` ile ✅ (gonderen_ad/gonderen_adres/sms_basligi; bağlantı durumu alanlarına dokunmaz). Merkezin alt projeye dönüp cache pull fallback yapması hâlâ yok — hiçbir alt proje merkeze imzalı `/api/internal/*` ile bağlı değil.
 - Sızan `CRON_SECRET` yenilenip `MERKEZ_INTERNAL_SECRET` olarak her iki tarafa girilecek.
 
 ---
-Son güncelleme: 2026-09-21
+Son güncelleme: 2026-09-30
