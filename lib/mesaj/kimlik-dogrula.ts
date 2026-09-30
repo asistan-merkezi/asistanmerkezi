@@ -15,7 +15,7 @@ export async function apiKimlikDogrula(
   req: NextRequest,
   admin: AdminClient,
 ): Promise<
-  | { basarili: true; proje: { id: string }; hamGovde: string }
+  | { basarili: true; proje: { id: string; sandbox: boolean }; hamGovde: string }
   | { basarili: false; yanit: NextResponse }
 > {
   const hamGovde = await req.text();
@@ -35,7 +35,7 @@ export async function apiKimlikDogrula(
   const apiKeyHash = createHash("sha256").update(apiKey).digest("hex");
   const { data: proje } = await admin
     .from("projeler")
-    .select("id, aktif")
+    .select("id, aktif, sandbox")
     .eq("api_key_hash", apiKeyHash)
     .maybeSingle();
 
@@ -53,5 +53,6 @@ export async function apiKimlikDogrula(
     };
   }
 
-  return { basarili: true, proje, hamGovde };
+  // sandbox burada okunur ki mesaj işleme projeyi ikinci kez sorgulamasın.
+  return { basarili: true, proje: { id: proje.id, sandbox: proje.sandbox === true }, hamGovde };
 }

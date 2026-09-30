@@ -1,10 +1,14 @@
 import "server-only";
 
-import { NextResponse, type NextRequest } from "next/server";
+import { after, NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { apiKimlikDogrula } from "@/lib/mesaj/kimlik-dogrula";
-import { tekMesajiIsle } from "@/lib/mesaj/mesaj-isle";
+import { tekMesajiIsle, yeniOnbellek } from "@/lib/mesaj/mesaj-isle";
+import { sinirliParalel } from "@/lib/paralel";
+import { krediBildirimleriniIsle } from "@/lib/mesaj/kredi-bildirim";
+
+const TOPLU_ESZAMANLILIK = 10;
 
 // CLAUDE.md §6.5: POST /api/v1/mesaj/toplu (≤1000 alıcı). Idempotency-Key
 // burada zorunlu değil (yalnız /mesaj/gonder için, §6.5) — her kalem
@@ -48,19 +52,38 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ hata: mesaj ?? "Geçersiz istek gövdesi." }, { status: 400 });
   }
 
-  const sonuclar: Array<{ disKullaniciId: string; httpStatus: number; yanit: Record<string, unknown> }> = [];
-
-  for (const tekGovde of govde.mesajlar) {
-    const { httpStatus, yanit } = await tekMesajiIsle(admin, proje.id, tekGovde, null);
-    sonuclar.push({ disKullaniciId: tekGovde.disKullaniciId, httpStatus, yanit });
-  }
+  // 1000 kalemi sırayla işlemek (~5 DB gidiş-dönüşü × 1000) fonksiyon süre sınırını
+  // aşabiliyordu. Kalemler sınırlı eşzamanlılıkla işlenir; kredi rezervasyonu satır
+  // kilidiyle atomik olduğu için aynı cüzdana eşzamanlı düşüm güvenlidir. Aynı
+  // kullanıcı/kanal okumaları istek boyunca bir kez yapılır (önbellek).
+  const onbellek = yeniOnbellek();
+  const sonuclar = await sinirliParalel(govde.mesajlar, TOPLU_ESZAMANLILIK, async (tekGovde) => {
+    try {
+      const { httpStatus, yanit } = await tekMesajiIsle(admin, proje, tekGovde, null, onbellek);
+      return { disKullaniciId: tekGovde.disKullaniciId, httpStatus, yanit };
+    } catch {
+      // Kısmi başarı modeli: beklenmeyen hata yalnız bu kalemi düşürür.
+      return {
+        disKullaniciId: tekGovde.disKullaniciId,
+        httpStatus: 500,
+        yanit: { hata: "İstek işlenemedi." } as Record<string, unknown>,
+      };
+    }
+  });
 
   const basariliSayisi = sonuclar.filter((s) => s.httpStatus === 200).length;
+  // 202 = kredi yetersiz, askıda (kredi yüklenince kendiliğinden gönderilir).
+  const askidaSayisi = sonuclar.filter((s) => s.httpStatus === 202).length;
+
+  if (!proje.sandbox && basariliSayisi + askidaSayisi > 0) {
+    after(() => krediBildirimleriniIsle(admin).catch(() => console.error("[kredi-bildirim] gönderilemedi")));
+  }
 
   return NextResponse.json({
     toplam: sonuclar.length,
     basarili: basariliSayisi,
-    basarisiz: sonuclar.length - basariliSayisi,
+    askida: askidaSayisi,
+    basarisiz: sonuclar.length - basariliSayisi - askidaSayisi,
     sonuclar,
   });
 }

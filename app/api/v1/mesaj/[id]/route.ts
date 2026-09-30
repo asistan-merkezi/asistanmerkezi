@@ -23,7 +23,7 @@ export async function GET(
   const { data: istek } = await admin
     .from("mesaj_istekleri")
     .select(
-      "id, kanal, mesaj_tipi, alici_maskeli, durum, hata_kodu, planlanan_zaman, created_at, updated_at, proje_kullanicilari!inner(proje_id)",
+      "id, kanal, mesaj_tipi, alici_maskeli, durum, hata_kodu, planlanan_zaman, askiya_alinma, created_at, updated_at, proje_kullanicilari!inner(proje_id)",
     )
     .eq("id", id)
     .eq("proje_kullanicilari.proje_id", proje.id)
@@ -46,7 +46,8 @@ export async function GET(
     kanal: istek.kanal,
     mesajTipi: istek.mesaj_tipi,
     aliciMaskeli: istek.alici_maskeli,
-    durum: istek.durum,
+    // Kredi bekleyen mesaj DB'de 'pending' + askiya_alinma; alt projeye "askida" görünür.
+    durum: istek.askiya_alinma && istek.durum === "pending" ? "askida" : istek.durum,
     hataKodu: istek.hata_kodu,
     planlananZaman: istek.planlanan_zaman,
     olusturulma: istek.created_at,

@@ -11,7 +11,8 @@ rmSync(HEDEF, { recursive: true, force: true });
 const dosyalar = [
   "lib/saglayicilar/tipler.ts", "lib/saglayicilar/ayar.ts", "lib/saglayicilar/netgsm.ts",
   "lib/saglayicilar/resend.ts", "lib/saglayicilar/sandbox.ts", "lib/saglayicilar/svix.ts",
-  "lib/mesaj/gonderim-motoru.ts", "lib/mesaj/webhook-isle.ts",
+  "lib/mesaj/gonderim-motoru.ts", "lib/mesaj/webhook-isle.ts", "lib/paralel.ts",
+  "lib/mesaj/imza.ts", "lib/mesaj/kredi-bildirim.ts",
 ];
 for (const d of dosyalar) {
   let kaynak = readFileSync(join(REPO, d), "utf8").replace(/import "server-only";\r?\n/, "");
@@ -27,7 +28,7 @@ for (const d of dosyalar) {
 const yukle = (d) => import(pathToFileURL(join(HEDEF, d)).href);
 
 let gecen = 0, kalan = 0;
-const ok = (ad, k, ayrinti = "") => { k ? gecen++ : kalan++; console.log(k ? "PASS" : "FAIL", ad, k ? "" : ayrinti); };
+const ok = (ad, k, ayrinti = "") => { if (k) gecen++; else kalan++; console.log(k ? "PASS" : "FAIL", ad, k ? "" : ayrinti); };
 const gercekFetch = globalThis.fetch;
 const sahteFetch = (yanitla) => { const cagrilar = []; globalThis.fetch = async (url, init) => { cagrilar.push({ url, init }); return yanitla(url, init); }; return cagrilar; };
 const json = (govde, durum = 200, basliklar = {}) => new Response(JSON.stringify(govde), { status: durum, headers: basliklar });
@@ -182,6 +183,60 @@ try {
   a = sahteAdmin({ satirlar: [satir({ kanal: "sms" })], ayar: { ...smsAyar, ayarlar: { kullanici_kodu: "85" } }, gizli: { sifre: "pw" } });
   await kuyruguIsle(a);
   ok("motor: SMS başlığı yoksa sms_basligi_yok", bul(a, "mesaj_sonuclandir").p.p_hata_kodu === "sms_basligi_yok");
+
+  // ── Kredi bildirimi teslimi (sahte veritabanı) ──
+  const { krediBildirimleriniIsle, bildirimMetni } = await yukle("lib/mesaj/kredi-bildirim.ts");
+  const { imzaDogrula } = await yukle("lib/mesaj/imza.ts");
+  process.env.MERKEZ_INTERNAL_SECRET = "gizli-sir";
+  const bildirimAdmin = ({ satirlar, epostaAyar = { saglayici: "Resend", aktif: true, api_url: "https://api.resend.com", api_versiyonu: null, ayarlar: {} } }) => {
+    const guncellemeler = [];
+    return {
+      guncellemeler,
+      rpc: async (ad, p) => {
+        if (ad === "kredi_bildirimi_al") return { data: satirlar, error: null };
+        if (ad === "kanal_gizli_oku") return { data: p.p_anahtar === "api_anahtari" ? "re_k" : null, error: null };
+        return { data: null, error: null };
+      },
+      from: () => ({
+        select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: epostaAyar }) }) }),
+        update: (deger) => ({ eq: async (_k, id) => { guncellemeler.push({ id, ...deger }); return { error: null }; } }),
+      }),
+    };
+  };
+  const bildirim = (o = {}) => ({ id: "b1", olay: "kredi.esik_alti", kanal: "sms", bakiye: 49, esik: 50, deneme_sayisi: 0, webhook_durumu: "bekliyor", eposta_durumu: "bekliyor", created_at: "2026-09-30T10:00:00Z", dis_kullanici_id: "u1", kullanici_ad: "Ayşe", kullanici_eposta: "ayse@x.com", webhook_url: "https://alt.example/hook", ...o });
+
+  c = sahteFetch((url) => (String(url).includes("resend") ? json({ id: "em_1" }) : json({ ok: true })));
+  a = bildirimAdmin({ satirlar: [bildirim()] });
+  await krediBildirimleriniIsle(a);
+  const hook = c.find((x) => String(x.url).includes("alt.example"));
+  const mail = c.find((x) => String(x.url).includes("resend"));
+  ok("bildirim: webhook olay + imzalı gövde", !!hook && JSON.parse(hook.init.body).olay === "kredi.esik_alti" && imzaDogrula("gizli-sir", hook.init.body, hook.init.headers["X-Imza"]));
+  ok("bildirim: e-posta kullanıcıya, konu 'azalıyor'", !!mail && JSON.parse(mail.init.body).to[0] === "ayse@x.com" && JSON.parse(mail.init.body).subject.includes("azalıyor"));
+  ok("bildirim: e-posta Idempotency-Key bildirim id'sine bağlı", mail?.init.headers["Idempotency-Key"] === "kredi-bildirim-b1");
+  ok("bildirim: ikisi de gönderildi → işlendi", a.guncellemeler[0].webhook_durumu === "gonderildi" && a.guncellemeler[0].eposta_durumu === "gonderildi" && !!a.guncellemeler[0].islendi_at, JSON.stringify(a.guncellemeler[0]));
+
+  c = sahteFetch((url) => (String(url).includes("resend") ? json({ id: "em_2" }) : json({}, 503)));
+  a = bildirimAdmin({ satirlar: [bildirim()] });
+  await krediBildirimleriniIsle(a);
+  ok("bildirim: webhook 503 → bekliyor + sonraki deneme, e-posta gönderildi", a.guncellemeler[0].webhook_durumu === "bekliyor" && a.guncellemeler[0].eposta_durumu === "gonderildi" && !a.guncellemeler[0].islendi_at && !!a.guncellemeler[0].sonraki_deneme);
+
+  c = sahteFetch(() => json({ ok: true }));
+  a = bildirimAdmin({ satirlar: [bildirim({ eposta_durumu: "gonderildi" })] });
+  await krediBildirimleriniIsle(a);
+  ok("bildirim: yeniden denemede gönderilmiş e-posta tekrar gitmez", c.length === 1 && String(c[0].url).includes("alt.example") && !!a.guncellemeler[0].islendi_at);
+
+  c = sahteFetch(() => json({}, 500));
+  a = bildirimAdmin({ satirlar: [bildirim({ deneme_sayisi: 4, eposta_durumu: "gonderildi" })] });
+  await krediBildirimleriniIsle(a);
+  ok("bildirim: 5. denemede tükenir → hata + işlendi", a.guncellemeler[0].webhook_durumu === "hata" && !!a.guncellemeler[0].islendi_at);
+
+  c = sahteFetch(() => json({ ok: true }));
+  a = bildirimAdmin({ satirlar: [bildirim({ webhook_url: null, kullanici_eposta: null })] });
+  await krediBildirimleriniIsle(a);
+  ok("bildirim: hedef yoksa istek atılmaz, 'yok' + işlendi", c.length === 0 && a.guncellemeler[0].webhook_durumu === "yok" && a.guncellemeler[0].eposta_durumu === "yok" && !!a.guncellemeler[0].islendi_at);
+
+  const tukendiMetni = bildirimMetni({ olay: "kredi.tukendi", kanal: "sms", bakiye: 0, esik: 50, kullanici_ad: null });
+  ok("bildirim metni: tükendi → askıda + kaldığı yerden", tukendiMetni.konu === "SMS mesaj krediniz bitti" && tukendiMetni.icerik.includes("askıya") && tukendiMetni.icerik.includes("kaldığı yerden"));
 } finally {
   globalThis.fetch = gercekFetch;
   rmSync(HEDEF, { recursive: true, force: true });
