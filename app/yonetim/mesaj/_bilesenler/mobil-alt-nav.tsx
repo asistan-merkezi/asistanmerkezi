@@ -8,13 +8,13 @@ import { KANALLAR } from "@/lib/mesaj/kanal-tanimlari";
 
 const ALT_NAV_YOLLARI = [
   "/yonetim/mesaj",
-  "/yonetim/mesaj/kategoriler",
+  "/yonetim/mesaj/projeler",
   "/yonetim/mesaj/kullanicilar",
 ] as const;
 
 const ALT_NAV_ETIKETLERI: Record<(typeof ALT_NAV_YOLLARI)[number], string> = {
   "/yonetim/mesaj": "Panel",
-  "/yonetim/mesaj/kategoriler": "Kategoriler",
+  "/yonetim/mesaj/projeler": "Projeler",
   "/yonetim/mesaj/kullanicilar": "Kullanıcılar",
 };
 
