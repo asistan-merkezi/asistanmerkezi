@@ -82,6 +82,8 @@ curl -s https://asistanmerkezi.com/api/health     # {"durum":"ok","veritabani":t
 
 - `NEXT_PUBLIC_*` build'e gömülür: adres/anahtar değişirse `--build` ile yeniden derle.
 - **Cloudflare:** `asistanmerkezi.com` ve `api.` kayıtlarını sunucu IP'sine yönlendir. İlk sertifika alınana kadar "DNS only" (gri bulut); sonra proxy açılırsa SSL modu **Full (strict)**.
+- **Kuyruk işçisi (zorunlu, yoksa mesaj gitmez):** sunucu cron'una dakikada bir `deploy/kuyruk-isle.sh` ekle (`* * * * * /opt/asistanmerkezi/deploy/kuyruk-isle.sh >> /var/log/asistan-kuyruk.log 2>&1`). `.env.uretim`'de `MERKEZ_INTERNAL_SECRET` dolu olmalı; yoksa uç `503` döner. Elle deneme: script'i çalıştır, `{"kuyruk":{"alinan":0,…}}` dönmeli. Aynı cron satırının yanına günlük `select asistan_mesaj.idempotency_temizle();` çağrısı da eklenebilir (`docker exec supabase-db psql -U postgres -c "…"`).
+- **Resend webhook'u:** Resend panelinde webhook adresi `https://<UYGULAMA_ALAN_ADI>/api/webhooks/resend`; olaylar `email.delivered/bounced/complained/delivery_delayed`. Resend'in verdiği `whsec_…` sırrı Panel › Sistem › Bağlantı Ayarları › E-posta › "Webhook imza sırrı"na girilir.
 - Yeni ortam = **yeni tüm sırlar**: `MERKEZ_INTERNAL_SECRET` yeniden üretilir (sızan `CRON_SECRET` bu ortamda kullanılmaz; CLAUDE.md açık sorunu kapanır).
 
 ## 6. Doğrulama (canlıya almadan)

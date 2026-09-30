@@ -15,6 +15,7 @@ Yanıt gövdesi hata durumunda `{ "hata": "<Türkçe mesaj>" }`. Aşağıdaki ta
 | 409 | Aynı `Idempotency-Key` hâlâ işleniyor | `/mesaj/gonder` | Kısa bekleyip **aynı anahtarla** tekrar dene |
 | 422 | Aynı anahtar farklı gövdeyle kullanıldı **ya da** WhatsApp gönderen kimliği bağlı değil | `/mesaj/gonder` | Kalıcı hata; ikincisinde kullanıcıyı WhatsApp bağlamaya yönlendir |
 | 429 | Hız limiti (henüz uygulanmıyor; bkz. CLAUDE.md §6.3 hız limiti) | — | `Retry-After`'a uy, üstel bekleme + jitter |
+| 503 | Gönderim durduruldu (kill switch), gövdede `kod: "gonderim_durduruldu"` | `/mesaj/gonder`, `/mesaj/toplu` (kalem bazında) | Geçici: mesajı **yerel kuyrukta tut**, üstel geri çekilmeyle **aynı anahtarla** tekrar dene; kaybolmaz. Kaldırılınca gönderilir |
 | 5xx | Merkez hatası | tümü | Geçici hata: üstel geri çekilme (en fazla 3 deneme), **aynı anahtarla** (5xx saklanmaz, anahtar serbest) |
 
 ## `mesaj_istekleri.hata_kodu` değerleri
@@ -23,8 +24,27 @@ Yanıt gövdesi hata durumunda `{ "hata": "<Türkçe mesaj>" }`. Aşağıdaki ta
 |---|---|---|
 | `rezervasyon_hatasi` | `kredi_rezerve_et` RPC hatası | Düşmedi |
 | `yetersiz_kredi` | Bakiye adetten az | Düşmedi |
+| `alici_kaydedilemedi` | Ham alıcı geçici tabloya yazılamadı (kredi iade edildi) | İade |
 
-Sağlayıcı gönderim kodları (Netgsm/Meta/Resend) worker bağlanınca buraya eklenecek.
+### Gönderim motoru kodları (durum `failed`; `GET /mesaj/:id` ile görülür)
+
+Kalıcı hata ilk denemede sonuçlanır; geçici hata (429, 5xx, ağ) 3 denemede tükenirse `<kod>_denemeler_tukendi` olur. Başarısız her mesajda kredi **iade** edilir.
+
+| Kod | Anlam | Alt proje ne yapar |
+|---|---|---|
+| `saglayici_yapilandirilmamis` | Kanal ayarı yok/pasif ya da sır girilmemiş | Merkez ekibine bildir (Sistem › Bağlantı Ayarları) |
+| `kanal_desteklenmiyor` | WhatsApp (Meta Tech Provider bekliyor) / Telegram henüz yok | Bu kanalı kullanma |
+| `gecersiz_alici` | Numara/e-posta biçimi geçersiz | Kullanıcı verisini düzelt |
+| `icerik_yok` | Serbest metin gerekli (SMS/e-posta) | İçerik gönder |
+| `sms_basligi_yok` | Ortak başlık ve kullanıcı başlığı tanımsız | Başlık tanımla |
+| `alici_yok` | Kayıt tutarsızlığı | Yeniden gönder (yeni anahtar) |
+| `netgsm_20/30/40/50/51…` | Netgsm yanıt kodu (20 metin, 30 yetki, 40 başlık tanımsız, 50/51 İYS) | Kodun anlamına göre |
+| `netgsm_yanit_okunamadi` | Yanıt belirsiz; çift SMS riski nedeniyle tekrar denenmez | Panelden kontrol et |
+| `resend_<ad>` | Resend hata adı (`validation_error`, …) | Adına göre |
+| `http_429`, `http_5xx`, `ag_hatasi`, `netgsm_80/85` | Geçici; tükenirse `…_denemeler_tukendi` | Yeni istekle yeniden dene |
+| `sandbox_simule_hata` / `sandbox_simule_gecici` | Sandbox alıcı sonu `…000` / `…500` | Beklenen |
+
+Teslim durumu (`mesaj_loglari.teslim_durumu`): `delivered`, `bounced`, `complained`, `delayed` — şimdilik yalnız e-posta (Resend webhook'u). Netgsm teslim raporu ve WhatsApp/Telegram webhook'ları henüz yok.
 
 ## Idempotency davranışı (2026-09-30 düzeltmesi)
 

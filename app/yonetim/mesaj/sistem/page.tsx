@@ -9,6 +9,13 @@ const BOLUMLER = [
     hazir: true,
   },
   {
+    yol: "/yonetim/mesaj/sistem/acil-durdurma",
+    ad: "Acil Durdurma",
+    ikon: "emergency_home",
+    aciklama: "Proje, kanal veya tüm gönderimi tek adımda durdur / yeniden başlat (kill switch). Audit'li.",
+    hazir: true,
+  },
+  {
     yol: "/yonetim/mesaj/sistem/sablonlar",
     ad: "Şablonlar",
     ikon: "drafts",

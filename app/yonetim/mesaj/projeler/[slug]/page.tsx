@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { requirePersonel } from "@/lib/yetki";
 import { createMesajClient } from "@/lib/supabase/mesaj-server";
 import { MERKEZ_CLIENT_ORNEGI, UC_NOKTALAR, envBlogu } from "@/lib/mesaj/baglanti-kodu";
-import { projeGuncelle } from "../actions";
+import { projeGuncelle, sandboxAyarla } from "../actions";
 import { AnahtarYenile } from "./_anahtar-yenile";
 
 const girdi =
@@ -24,7 +24,7 @@ export default async function ProjeDetaySayfasi({ params }: { params: Promise<{ 
   const supabase = await createMesajClient();
   const { data: proje } = await supabase
     .from("projeler")
-    .select("id, ad, slug, kategori_id, domain, webhook_url, aktif, api_key_hash")
+    .select("id, ad, slug, kategori_id, domain, webhook_url, aktif, api_key_hash, sandbox")
     .eq("slug", slug)
     .maybeSingle();
   if (!proje) notFound();
@@ -89,6 +89,35 @@ export default async function ProjeDetaySayfasi({ params }: { params: Promise<{ 
           )}
         </fieldset>
       </form>
+
+      <div className="flex flex-col gap-3 rounded-lg border border-panel-border bg-panel-surface p-6 shadow-sm">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-panel-text">Sandbox (test) modu</h2>
+          <span
+            className={
+              "rounded-full px-2 py-0.5 text-[11px] font-semibold " +
+              (proje.sandbox ? "bg-panel-warning-bg text-panel-warning" : "bg-panel-canvas text-panel-text-secondary")
+            }
+          >
+            {proje.sandbox ? "SANDBOX AÇIK" : "Canlı"}
+          </span>
+        </div>
+        <p className="text-xs text-panel-text-secondary">
+          Açıkken bu projenin mesajları gerçek sağlayıcıya gitmez ve kredi düşmez; yanıtlar ve durumlar gerçekteki gibi
+          döner. Alıcı sonu <code>…000</code> kalıcı hata, <code>…500</code> geçici hata (3 denemede başarısız) simüle
+          eder; diğerleri başarılı olur. Canlıya çıkmadan önce kapatın.
+        </p>
+        {duzenleyebilir && (
+          <form action={sandboxAyarla.bind(null, proje.id, proje.slug, !proje.sandbox)}>
+            <button
+              type="submit"
+              className="rounded-md border border-panel-border px-3 py-1.5 text-xs font-semibold text-panel-text hover:bg-panel-canvas"
+            >
+              {proje.sandbox ? "Sandbox'ı kapat (canlıya al)" : "Sandbox'ı aç"}
+            </button>
+          </form>
+        )}
+      </div>
 
       <div className="flex flex-col gap-3 rounded-lg border border-panel-border bg-panel-surface p-6 shadow-sm">
         <h2 className="text-sm font-semibold text-panel-text">API anahtarı</h2>

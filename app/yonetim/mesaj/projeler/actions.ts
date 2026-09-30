@@ -90,6 +90,14 @@ export async function anahtarYenile(
   return { durum: "ok", anahtar, slug };
 }
 
+// Sandbox: gerçek sağlayıcıya gitmez, kredi düşmez (gonderim motoru sandbox adapter'ı). Audit'li.
+export async function sandboxAyarla(projeId: string, slug: string, sandbox: boolean) {
+  if (!(await superAdminMi())) return;
+  const supabase = await createMesajClient();
+  await supabase.rpc("proje_sandbox_ayarla", { p_proje_id: projeId, p_sandbox: sandbox });
+  revalidatePath(`/yonetim/mesaj/projeler/${slug}`);
+}
+
 export async function projeGuncelle(projeId: string, slug: string, formData: FormData) {
   if (!(await superAdminMi())) return;
   const webhook = httpsAdres.safeParse(formData.get("webhook_url") ?? "");

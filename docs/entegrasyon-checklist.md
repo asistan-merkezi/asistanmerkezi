@@ -24,4 +24,16 @@ Bir modülü (ör. klinik) Mesaj Merkezi'ne bağlarken sırayla:
    - [ ] Panel › Mesaj Takibi'nde kayıt maskeli alıcıyla görünüyor
 10. **Log kuralı** — ham telefon/e-posta/içerik/token log'a yazılmaz; korelasyon için `mesajIstekId` ve `Idempotency-Key` kullan.
 
-> Sandbox modu henüz yok (CLAUDE.md §8 "Sonra"): smoke test gerçek kredi ve gerçek sağlayıcı harcar. Test için ayrı bir proje + küçük kredi kullan.
+## Sandbox modu (canlıya çıkmadan önce)
+
+Panel › Projeler › proje › **Sandbox'ı aç**. Açıkken mesajlar gerçek sağlayıcıya gitmez ve kredi düşmez; yanıtlar gerçekteki gibi döner (`sandbox: true` alanı eklenir, `kalanBakiye` mevcut bakiyeyi yansıtır). Alıcı sonuna göre davranış:
+
+| Alıcı sonu | Sonuç |
+|---|---|
+| `…000` | Kalıcı hata `sandbox_simule_hata` |
+| `…500` | Geçici hata, 3 denemede `…_denemeler_tukendi` |
+| diğer | Başarılı, `dis_mesaj_id = sandbox-<istek id>` |
+
+Sandbox smoke testleri: başarılı gönderim, kalıcı hata, geçici hata + yeniden deneme, **kill switch (503) sırasında yerel kuyruğun mesajı tutup sonra göndermesi**, idempotent tekrar. Hepsi geçince sandbox'ı kapatın. Uyarı: sandbox açıkken bile SMS/e-posta yapılandırması gerekmez, ama gerçek gönderimi doğrulamak için son adımda tek bir canlı test mesajı atın.
+
+E-posta konusu için isteğe bağlı `konu` alanı gönderilebilir (varsayılan "Bildirim").

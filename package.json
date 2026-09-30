@@ -8,7 +8,10 @@
     "start": "next start",
     "lint": "eslint",
     "rls:kontrol": "node --env-file=.env.local scripts/rls-kontrol.mjs",
-    "db:kur": "node --env-file=.env.local scripts/db-kur.mjs"
+    "db:kur": "node --env-file=.env.local scripts/db-kur.mjs",
+    "test:sql": "node scripts/test/sql-test.mjs",
+    "test:saglayici": "node --experimental-strip-types --no-warnings scripts/test/saglayici-test.mjs",
+    "test": "npm run test:sql && npm run test:saglayici"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
@@ -21,6 +24,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

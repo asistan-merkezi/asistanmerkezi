@@ -30,6 +30,7 @@ const govdeSemasi = z
     degiskenler: z.record(z.string(), z.unknown()).optional(),
     planlananZaman: z.string().datetime().optional(),
     kaynakBolum: z.string().min(1).optional(),
+    konu: z.string().min(1).max(200).optional(),
   })
   .refine((v) => Boolean(v.icerik || v.sablonAdi), {
     message: "icerik veya sablonAdi gerekli",
