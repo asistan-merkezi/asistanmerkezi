@@ -50,9 +50,10 @@ kamuya açık rozetle değil).
 
 Borsa & Piyasa Asistanı iptal edildi (2026-09-16); `borsaasistan.com` artık kullanılmıyor.
 
-Bu liste aynı zamanda mesaj merkezindeki **kategori** hiyerarşisinin kaynağıdır (§6.2).
-`asistan_mesaj.kategoriler` içindeki `'Borsa & Ev Ekonomisi'` (slug `borsa`) satırı henüz
-güncellenmedi — DB tarafı bu iptalden ayrı bir kapsam olarak bekliyor.
+Bu liste aynı zamanda mesaj merkezindeki **kategori** hiyerarşisinin kaynağıdır (§6.2). Tek istisna: modül olmayan, müşteriye özel projeler için ayrı bir **Özel Proje** kategorisi (slug `ozel-proje`, `20260930110000_kategori_ozel_proje.sql`) — hub'ın modül listesinde yer almaz.
+`asistan_mesaj.kategoriler` içindeki `'Borsa & Ev Ekonomisi'` (slug `borsa`) satırı
+`'Ev Ekonomisi'` olarak yeniden adlandırılıyor (slug değişmez) —
+`20260930100000_kategori_ev_ekonomisi.sql` yazıldı, DB'ye uygulanması bekliyor.
 
 ## 4. Veri Modeli
 

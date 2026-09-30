@@ -1,17 +1,37 @@
+import Link from "next/link";
 import { createMesajClient } from "@/lib/supabase/mesaj-server";
 import { baglantiDurumuRozeti } from "../_bilesenler/rozetler";
 
-export default async function KullanicilarSayfasi() {
+export default async function KullanicilarSayfasi({
+  searchParams,
+}: {
+  searchParams: Promise<{ kategori?: string }>;
+}) {
+  const { kategori: secilenSlug } = await searchParams;
   const supabase = await createMesajClient();
 
-  const [{ data: kullanicilar }, { data: projeler }, { data: cuzdanlar }, { data: kimlikler }] =
+  const [{ data: projeler }, { data: kategoriler }] = await Promise.all([
+    supabase.from("projeler").select("id, ad, kategori_id"),
+    supabase.from("kategoriler").select("id, ad, slug").eq("aktif", true).order("sira"),
+  ]);
+
+  const seciliKategori = (kategoriler ?? []).find((k) => k.slug === secilenSlug) ?? null;
+  const filtreProjeIdleri = seciliKategori
+    ? (projeler ?? []).filter((p) => p.kategori_id === seciliKategori.id).map((p) => p.id)
+    : null;
+  const kategoriAdi = new Map((kategoriler ?? []).map((k) => [k.id, k.ad]));
+  const projeKategorisi = new Map((projeler ?? []).map((p) => [p.id, kategoriAdi.get(p.kategori_id)]));
+
+  const [{ data: kullanicilar }, { data: cuzdanlar }, { data: kimlikler }] =
     await Promise.all([
-      supabase
-        .from("proje_kullanicilari_maskeli")
-        .select("id, proje_id, dis_kullanici_id, ad, eposta, telefon_maskeli, created_at")
-        .order("created_at", { ascending: false })
-        .limit(50),
-      supabase.from("projeler").select("id, ad"),
+      (() => {
+        const sorgu = supabase
+          .from("proje_kullanicilari_maskeli")
+          .select("id, proje_id, dis_kullanici_id, ad, eposta, telefon_maskeli, created_at")
+          .order("created_at", { ascending: false })
+          .limit(50);
+        return filtreProjeIdleri ? sorgu.in("proje_id", filtreProjeIdleri) : sorgu;
+      })(),
       supabase.from("kredi_cuzdanlari").select("proje_kullanici_id, kanal, bakiye"),
       supabase
         .from("gonderen_kimlikleri")
@@ -46,6 +66,26 @@ export default async function KullanicilarSayfasi() {
         </p>
       </div>
 
+      <div className="flex flex-wrap gap-2">
+        {[{ slug: "", ad: "Tümü" }, ...(kategoriler ?? [])].map((k) => {
+          const aktifMi = (seciliKategori?.slug ?? "") === k.slug;
+          return (
+            <Link
+              key={k.slug || "tumu"}
+              href={k.slug ? `/yonetim/mesaj/kullanicilar?kategori=${k.slug}` : "/yonetim/mesaj/kullanicilar"}
+              className={
+                "rounded-full border px-3 py-1 text-xs transition-colors " +
+                (aktifMi
+                  ? "border-panel-primary bg-panel-primary/5 font-semibold text-panel-primary"
+                  : "border-panel-border text-panel-text-secondary hover:bg-panel-canvas")
+              }
+            >
+              {k.ad}
+            </Link>
+          );
+        })}
+      </div>
+
       <div className="overflow-hidden rounded-lg border border-panel-border bg-panel-surface shadow-sm">
         {!kullanicilar || kullanicilar.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -68,6 +108,7 @@ export default async function KullanicilarSayfasi() {
             <thead>
               <tr className="border-b border-panel-border bg-panel-canvas text-xs uppercase text-panel-text-secondary">
                 <th className="px-4 py-2 font-medium">Kullanıcı</th>
+                <th className="px-4 py-2 font-medium">Kategori</th>
                 <th className="px-4 py-2 font-medium">Proje</th>
                 <th className="px-4 py-2 font-medium">Telefon (maskeli)</th>
                 <th className="px-4 py-2 font-medium">WhatsApp</th>
@@ -84,6 +125,9 @@ export default async function KullanicilarSayfasi() {
                         {k.eposta}
                       </span>
                     )}
+                  </td>
+                  <td className="px-4 py-2.5 text-panel-text-secondary">
+                    {projeKategorisi.get(k.proje_id) ?? "—"}
                   </td>
                   <td className="px-4 py-2.5 text-panel-text-secondary">
                     {projeAdi.get(k.proje_id) ?? "—"}
