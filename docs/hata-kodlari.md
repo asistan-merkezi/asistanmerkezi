@@ -32,4 +32,4 @@ Sağlayıcı gönderim kodları (Netgsm/Meta/Resend) worker bağlanınca buraya 
 - **Saklanmayan (anahtar serbest kalır):** 5xx ve 402. Aynı anahtarla yeniden denemek yeni işlem yapar.
 - **Çöken istek:** yanıtsız kayıt 5 dakikadan eskiyse (fonksiyon süresinin üstü) sonraki istek kaydı devralır; o zamana kadar 409.
 - **Bilinen sınır:** istek satırı açıldıktan sonra beklenmeyen istisna olursa anahtar (çifte kredi düşmesin diye) 5 dakika kilitli kalır. `enqueue` hatası isteği başarısız saymaz.
-- `idempotency_kayitlari` temizliği: `20260930150000_idempotency_temizleme.sql` (`asistan_mesaj.idempotency_temizle()`, service_role) — migration uygulanınca zamanlayıcı günde bir çağıracak.
+- `idempotency_kayitlari` temizliği: `20260930150000_idempotency_temizleme.sql` (`asistan_mesaj.idempotency_temizle()`, service_role) — uygulandı; zamanlayıcı bağlanınca günde bir çağıracak, o zamana kadar elle.
