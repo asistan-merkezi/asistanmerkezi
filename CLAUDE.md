@@ -7,7 +7,7 @@
 1. **Hub:** modül tanıtımı, merkezi kayıt/giriş, deneme süresi (trial) yönetimi, abonelik bariyeri. Her modül kendi bağımsız domaininde çalışır; hub kullanıcı/kiracı yaşam döngüsünü tek merkezden yönetir.
 2. **Mesaj Merkezi:** tüm modüllerin SMS / WhatsApp / e-posta / Telegram gönderimlerini yürüten merkezi servis + genel yönetim paneli (§6). Ayrı proje değildir — aynı Next.js uygulaması, aynı Supabase projesi, kendi şeması (`asistan_mesaj`) ve kendi route segmenti.
 
-İş modeli: 30 gün ücretsiz deneme → aylık abonelik. Bazı modüller (ör. klinik) ayrıca münferit kurulum olarak da satılır. Mesaj kullanımı ayrı kredi sistemiyle ücretlendirilir.
+İş modeli: 21 gün ücretsiz deneme → aylık abonelik. Bazı modüller (ör. klinik) ayrıca münferit kurulum olarak da satılır. Mesaj kullanımı ayrı kredi sistemiyle ücretlendirilir.
 
 **Kapsam dışı:** nukhetbu.com (ayrı marka), Ganyan (ayrı hesaba taşınıyor).
 
@@ -80,7 +80,7 @@ Landing (tanıtım + giriş/kayıt/şifremi unuttum + kullanım kılavuzu PDF) �
 Kayıtta tam yetkiliye bilgilendirme + onay linkli mail gider. Onay gelmeden de deneme başlar; ancak onaysız hesapta **ödeme, hesap silme ve yetki devri** işlemleri kısıtlıdır.
 
 ### 5.3 Deneme süresi
-- Her yeni kiracıya otomatik 30 gün (DB varsayılanı). Tanıtım metinleri (ana sayfa, kayıt sayfası, meta açıklama) 2026-09-24 itibarıyla "21 gün" diyor — site henüz kullanımda değil, sistem bilinçli olarak değiştirilmedi; canlıya çıkmadan önce ikisi eşitlenmeli.
+- Her yeni kiracıya otomatik 21 gün (DB varsayılanı, `20260930140000_trial_21_gun.sql`; 2026-09-30'da 30'dan çekildi, tanıtım metinleriyle eşit). Mevcut kiracıların bitiş tarihi değişmedi.
 - Kalan gün sayısı panelde sürekli görünür.
 - Abonelik başlayınca trial verileri kaldığı yerden devam eder; sıfırlama yok.
 
