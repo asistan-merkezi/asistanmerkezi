@@ -151,7 +151,13 @@ export async function tekMesajiIsle(
   }
 
   await admin.from("mesaj_istekleri").update({ durum: "queued" }).eq("id", yeniIstek.id);
-  await kuyrukAdapter.enqueue(yeniIstek.id);
+  // Satır zaten "queued" ve kredi rezerve: dispatch hatası isteği başarısız saymaz
+  // (yeniden denemede çifte rezervasyon olurdu); tarayıcı/worker queued satırı alır.
+  try {
+    await kuyrukAdapter.enqueue(yeniIstek.id);
+  } catch {
+    console.error(`[kuyruk] enqueue başarısız: ${yeniIstek.id}`);
+  }
 
   return {
     httpStatus: 200,

@@ -23,6 +23,31 @@ export type IdempotencySonucu =
 
 const UNIQUE_VIOLATION = "23505";
 
+// Vercel fonksiyon süresinin (300 sn) üstü: bundan eski yanıtsız kayıt çökmüş sayılır.
+const YANITSIZ_KAYIT_ZAMAN_ASIMI_MS = 5 * 60 * 1000;
+
+// Geçici sonuçlar (5xx, 402 yetersiz kredi) kalıcı yanıt olarak saklanmaz: anahtar
+// serbest bırakılır, alt proje aynı anahtarla yeniden deneyebilir. Yalnız hâlâ
+// yanıtsız olan kayıt silinir.
+export function gecicimiSonuc(httpStatus: number): boolean {
+  return httpStatus >= 500 || httpStatus === 402;
+}
+
+export async function idempotencyAnahtariniSerbestBirak(
+  supabase: AdminClient,
+  projeKullaniciId: string,
+  anahtar: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from("idempotency_kayitlari")
+    .delete()
+    .eq("proje_kullanici_id", projeKullaniciId)
+    .eq("anahtar", anahtar)
+    .is("yanit", null);
+
+  if (error) throw error;
+}
+
 export async function idempotencyKontrolEt(
   supabase: AdminClient,
   projeKullaniciId: string,
@@ -31,9 +56,12 @@ export async function idempotencyKontrolEt(
 ): Promise<IdempotencySonucu> {
   // Placeholder satırı atomik oluşturmayı dene — eşzamanlı iki istek aynı
   // anahtarla gelirse yalnız biri bu insert'i kazanır.
-  const { error: insertError } = await supabase
-    .from("idempotency_kayitlari")
-    .insert({ proje_kullanici_id: projeKullaniciId, anahtar, istek_hash: istekHash });
+  const yerlestir = () =>
+    supabase
+      .from("idempotency_kayitlari")
+      .insert({ proje_kullanici_id: projeKullaniciId, anahtar, istek_hash: istekHash });
+
+  const { error: insertError } = await yerlestir();
 
   if (!insertError) {
     return { durum: "yeni" };
@@ -41,6 +69,25 @@ export async function idempotencyKontrolEt(
 
   if (insertError.code !== UNIQUE_VIOLATION) {
     throw insertError;
+  }
+
+  // Süreç istek ortasında çöktüyse yanıtsız kayıt sonsuza dek 409 döndürürdü.
+  // Zaman aşımını geçmiş yanıtsız kaydı sil ve bir kez daha yerleştirmeyi dene
+  // (eşzamanlı iki devralma denemesinden yalnız biri insert'i kazanır).
+  const esik = new Date(Date.now() - YANITSIZ_KAYIT_ZAMAN_ASIMI_MS).toISOString();
+  const { data: silinen } = await supabase
+    .from("idempotency_kayitlari")
+    .delete()
+    .eq("proje_kullanici_id", projeKullaniciId)
+    .eq("anahtar", anahtar)
+    .is("yanit", null)
+    .lt("created_at", esik)
+    .select("id");
+
+  if (silinen && silinen.length > 0) {
+    const { error: tekrarHatasi } = await yerlestir();
+    if (!tekrarHatasi) return { durum: "yeni" };
+    if (tekrarHatasi.code !== UNIQUE_VIOLATION) throw tekrarHatasi;
   }
 
   const { data: kayit, error: selectError } = await supabase

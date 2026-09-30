@@ -5,6 +5,8 @@ import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { apiKimlikDogrula } from "@/lib/mesaj/kimlik-dogrula";
 import {
+  gecicimiSonuc,
+  idempotencyAnahtariniSerbestBirak,
   idempotencyKontrolEt,
   idempotencySonucunuKaydet,
   istekHashla,
@@ -91,7 +93,31 @@ export async function POST(req: NextRequest) {
   }
 
   // durum === "yeni"
-  const { httpStatus, yanit } = await tekMesajiIsle(admin, proje.id, govde, idempotencyAnahtari);
-  await idempotencySonucunuKaydet(admin, projeKullanicisi.id, idempotencyAnahtari, yanit, httpStatus);
+  let sonuc: Awaited<ReturnType<typeof tekMesajiIsle>>;
+  try {
+    sonuc = await tekMesajiIsle(admin, proje.id, govde, idempotencyAnahtari);
+  } catch (hata) {
+    // Beklenmeyen hata: bu anahtarla henüz istek satırı açılmadıysa (kredi de
+    // rezerve edilmemiştir) anahtarı serbest bırak. Satır varsa kredi düşmüş
+    // olabilir; çifte düşmeyi önlemek için anahtar zaman aşımına kadar kilitli kalır.
+    const { data: acilmisIstek } = await admin
+      .from("mesaj_istekleri")
+      .select("id")
+      .eq("proje_kullanici_id", projeKullanicisi.id)
+      .eq("idempotency_anahtari", idempotencyAnahtari)
+      .limit(1)
+      .maybeSingle();
+    if (!acilmisIstek) {
+      await idempotencyAnahtariniSerbestBirak(admin, projeKullanicisi.id, idempotencyAnahtari);
+    }
+    throw hata;
+  }
+
+  const { httpStatus, yanit } = sonuc;
+  if (gecicimiSonuc(httpStatus)) {
+    await idempotencyAnahtariniSerbestBirak(admin, projeKullanicisi.id, idempotencyAnahtari);
+  } else {
+    await idempotencySonucunuKaydet(admin, projeKullanicisi.id, idempotencyAnahtari, yanit, httpStatus);
+  }
   return NextResponse.json(yanit, { status: httpStatus });
 }
