@@ -1,6 +1,6 @@
 import "server-only";
 
-import { NextResponse, type NextRequest } from "next/server";
+import { after, NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { apiKimlikDogrula } from "@/lib/mesaj/kimlik-dogrula";
@@ -11,7 +11,8 @@ import {
   idempotencySonucunuKaydet,
   istekHashla,
 } from "@/lib/mesaj/idempotency";
-import { tekMesajiIsle } from "@/lib/mesaj/mesaj-isle";
+import { projeKullanicisiBul, tekMesajiIsle, yeniOnbellek } from "@/lib/mesaj/mesaj-isle";
+import { krediBildirimleriniIsle } from "@/lib/mesaj/kredi-bildirim";
 
 // CLAUDE.md §6.5: POST /api/v1/mesaj/gonder (Idempotency-Key zorunlu).
 // Akış (§6.3): [İstek] → [İdempotency] → [Kimlik/kanal doğrulama] →
@@ -58,12 +59,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ hata: "Geçersiz istek gövdesi." }, { status: 400 });
   }
 
-  const { data: projeKullanicisi } = await admin
-    .from("proje_kullanicilari")
-    .select("id")
-    .eq("proje_id", proje.id)
-    .eq("dis_kullanici_id", govde.disKullaniciId)
-    .maybeSingle();
+  // Önbellek tekMesajiIsle'ye de verilir: proje kullanıcısı ikinci kez aranmaz.
+  const onbellek = yeniOnbellek();
+  const projeKullanicisi = await projeKullanicisiBul(admin, proje.id, govde.disKullaniciId, onbellek);
 
   if (!projeKullanicisi) {
     return NextResponse.json({ hata: "Proje kullanıcısı bulunamadı." }, { status: 404 });
@@ -96,7 +94,7 @@ export async function POST(req: NextRequest) {
   // durum === "yeni"
   let sonuc: Awaited<ReturnType<typeof tekMesajiIsle>>;
   try {
-    sonuc = await tekMesajiIsle(admin, proje.id, govde, idempotencyAnahtari);
+    sonuc = await tekMesajiIsle(admin, proje, govde, idempotencyAnahtari, onbellek);
   } catch (hata) {
     // Beklenmeyen hata: bu anahtarla henüz istek satırı açılmadıysa (kredi de
     // rezerve edilmemiştir) anahtarı serbest bırak. Satır varsa kredi düşmüş
@@ -119,6 +117,11 @@ export async function POST(req: NextRequest) {
     await idempotencyAnahtariniSerbestBirak(admin, projeKullanicisi.id, idempotencyAnahtari);
   } else {
     await idempotencySonucunuKaydet(admin, projeKullanicisi.id, idempotencyAnahtari, yanit, httpStatus);
+  }
+  // Kredi düştüyse eşik/tükendi bildirimi DB'de açılmış olabilir: yanıt gittikten sonra
+  // gönder (kullanıcı günlük zamanlayıcı turunu beklemesin). Hata yanıtı etkilemez.
+  if (!proje.sandbox && (httpStatus === 200 || httpStatus === 202)) {
+    after(() => krediBildirimleriniIsle(admin).catch(() => console.error("[kredi-bildirim] gönderilemedi")));
   }
   return NextResponse.json(yanit, { status: httpStatus });
 }

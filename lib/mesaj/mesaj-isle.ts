@@ -20,44 +20,105 @@ export type TekMesajGovde = {
   konu?: string; // e-posta konusu
 };
 
+export type MesajProjesi = { id: string; sandbox: boolean };
+
+// Bir API isteği boyunca tekrar eden okumaların paylaşılan sonucu. /mesaj/toplu'da
+// aynı kullanıcı/kanal için yüzlerce kalem aynı satırları okuyordu; /mesaj/gonder'de
+// proje kullanıcısı hem idempotency adımında hem burada aranıyordu. Promise saklanır
+// (eşzamanlı kalemler aynı sorguyu bekler); reddedilen promise önbellekten düşer.
+export type IstekOnbellegi = Map<string, Promise<unknown>>;
+
+export function yeniOnbellek(): IstekOnbellegi {
+  return new Map();
+}
+
+function onbellekte<T>(onbellek: IstekOnbellegi, anahtar: string, getir: () => Promise<T>): Promise<T> {
+  const mevcut = onbellek.get(anahtar) as Promise<T> | undefined;
+  if (mevcut) return mevcut;
+  const yeni = getir();
+  onbellek.set(anahtar, yeni);
+  yeni.catch(() => onbellek.delete(anahtar));
+  return yeni;
+}
+
+export function projeKullanicisiBul(
+  admin: AdminClient,
+  projeId: string,
+  disKullaniciId: string,
+  onbellek: IstekOnbellegi,
+): Promise<{ id: string } | null> {
+  return onbellekte(onbellek, `pk:${disKullaniciId}`, async () => {
+    const { data } = await admin
+      .from("proje_kullanicilari")
+      .select("id")
+      .eq("proje_id", projeId)
+      .eq("dis_kullanici_id", disKullaniciId)
+      .maybeSingle();
+    return data;
+  });
+}
+
 // /mesaj/gonder ve /mesaj/toplu arasında paylaşılan tek-mesaj işleme mantığı
 // (CLAUDE.md §6.3 akışı): [Kimlik/kanal doğrulama] → [İYS izni (ticari ise)]
 // → [Kredi rezervasyonu] → [Kuyruk]. İdempotency adımı çağıran route'un
 // sorumluluğunda (yalnız /mesaj/gonder'de zorunlu, §6.5).
+// Hız: birbirinden bağımsız okumalar (gönderen kimliği, kill switch, İYS) ve
+// istek satırından sonraki iki yazma (kredi rezervasyonu, ham alıcı) paralel
+// çalışır; başarılı yol ~9 yerine 5 ardışık DB gidiş-dönüşü.
 export async function tekMesajiIsle(
   admin: AdminClient,
-  projeId: string,
+  proje: MesajProjesi,
   govde: TekMesajGovde,
   idempotencyAnahtari: string | null,
+  onbellek: IstekOnbellegi = yeniOnbellek(),
 ): Promise<{ httpStatus: number; yanit: Record<string, unknown> }> {
-  const { data: projeKullanicisi } = await admin
-    .from("proje_kullanicilari")
-    .select("id")
-    .eq("proje_id", projeId)
-    .eq("dis_kullanici_id", govde.disKullaniciId)
-    .maybeSingle();
+  const projeKullanicisi = await projeKullanicisiBul(admin, proje.id, govde.disKullaniciId, onbellek);
 
   if (!projeKullanicisi) {
     return { httpStatus: 404, yanit: { hata: "Proje kullanıcısı bulunamadı." } };
   }
 
-  const { data: gonderenKimligi } = await admin
-    .from("gonderen_kimlikleri")
-    .select("id, baglanti_durumu")
-    .eq("proje_kullanici_id", projeKullanicisi.id)
-    .eq("kanal", govde.kanal)
-    .maybeSingle();
+  const aliciHash = aliciHashle(govde.alici);
+  const aliciMaskeli = aliciMaskele(govde.alici);
+  const sandbox = proje.sandbox;
+
+  const [gonderenKimligi, engelSebebi, iysIzni] = await Promise.all([
+    onbellekte(onbellek, `gk:${projeKullanicisi.id}:${govde.kanal}`, async () => {
+      const { data } = await admin
+        .from("gonderen_kimlikleri")
+        .select("id, baglanti_durumu")
+        .eq("proje_kullanici_id", projeKullanicisi.id)
+        .eq("kanal", govde.kanal)
+        .maybeSingle();
+      return data;
+    }),
+    // Kill switch (gonderim_durdurmalari).
+    onbellekte(onbellek, `engel:${govde.kanal}`, async () => {
+      const { data } = await admin.rpc("gonderim_engeli", {
+        p_proje_id: proje.id,
+        p_kanal: govde.kanal,
+      });
+      return data as unknown;
+    }),
+    // İYS izni: yalnızca ticari mesajda kontrol edilir. Cache kaydı yoksa
+    // fail-open (CLAUDE.md §6.3) — dış İYS API'sine bağlanma bugünkü kapsamda değil.
+    govde.mesajTipi === "ticari"
+      ? admin
+          .from("iys_izinleri")
+          .select("durum")
+          .eq("alici_hash", aliciHash)
+          .eq("kanal", govde.kanal)
+          .maybeSingle()
+          .then(({ data }) => data)
+      : Promise.resolve(null),
+  ]);
 
   if (govde.kanal === "whatsapp" && gonderenKimligi?.baglanti_durumu !== "connected") {
     return { httpStatus: 422, yanit: { hata: "WhatsApp gönderen kimliği bağlı değil." } };
   }
 
-  // Kill switch (gonderim_durdurmalari): 503 geçici sonuçtur — alt proje kendi yerel
-  // kuyruğunda tutup üstel geri çekilmeyle yeniden dener, mesaj kaybolmaz; anahtar serbest kalır.
-  const { data: engelSebebi } = await admin.rpc("gonderim_engeli", {
-    p_proje_id: projeId,
-    p_kanal: govde.kanal,
-  });
+  // Kill switch: 503 geçici sonuçtur — alt proje kendi yerel kuyruğunda tutup
+  // üstel geri çekilmeyle yeniden dener, mesaj kaybolmaz; anahtar serbest kalır.
   if (engelSebebi) {
     return {
       httpStatus: 503,
@@ -65,51 +126,34 @@ export async function tekMesajiIsle(
     };
   }
 
-  const { data: proje } = await admin.from("projeler").select("sandbox").eq("id", projeId).single();
-  const sandbox = proje?.sandbox === true;
+  if (iysIzni?.durum === "REFUSE") {
+    const { data: reddedilenIstek, error: insertHatasi } = await admin
+      .from("mesaj_istekleri")
+      .insert({
+        proje_kullanici_id: projeKullanicisi.id,
+        gonderen_kimlik_id: gonderenKimligi?.id ?? null,
+        kanal: govde.kanal,
+        mesaj_tipi: govde.mesajTipi,
+        alici_hash: aliciHash,
+        alici_maskeli: aliciMaskeli,
+        icerik: govde.icerik ?? null,
+        sablon_adi: govde.sablonAdi ?? null,
+        degiskenler: govde.degiskenler ?? null,
+        kaynak_bolum: govde.kaynakBolum ?? null,
+        durum: "iys_rejected",
+        idempotency_anahtari: idempotencyAnahtari,
+      })
+      .select("id")
+      .single();
 
-  const aliciHash = aliciHashle(govde.alici);
-  const aliciMaskeli = aliciMaskele(govde.alici);
-
-  // İYS izni: yalnızca ticari mesajda kontrol edilir. Cache kaydı yoksa
-  // fail-open (CLAUDE.md §6.3) — dış İYS API'sine bağlanma bugünkü kapsamda değil.
-  if (govde.mesajTipi === "ticari") {
-    const { data: izin } = await admin
-      .from("iys_izinleri")
-      .select("durum")
-      .eq("alici_hash", aliciHash)
-      .eq("kanal", govde.kanal)
-      .maybeSingle();
-
-    if (izin?.durum === "REFUSE") {
-      const { data: reddedilenIstek, error: insertHatasi } = await admin
-        .from("mesaj_istekleri")
-        .insert({
-          proje_kullanici_id: projeKullanicisi.id,
-          gonderen_kimlik_id: gonderenKimligi?.id ?? null,
-          kanal: govde.kanal,
-          mesaj_tipi: govde.mesajTipi,
-          alici_hash: aliciHash,
-          alici_maskeli: aliciMaskeli,
-          icerik: govde.icerik ?? null,
-          sablon_adi: govde.sablonAdi ?? null,
-          degiskenler: govde.degiskenler ?? null,
-          kaynak_bolum: govde.kaynakBolum ?? null,
-          durum: "iys_rejected",
-          idempotency_anahtari: idempotencyAnahtari,
-        })
-        .select("id")
-        .single();
-
-      if (insertHatasi || !reddedilenIstek) {
-        return { httpStatus: 500, yanit: { hata: "İstek kaydedilemedi." } };
-      }
-
-      return {
-        httpStatus: 200,
-        yanit: { mesajIstekId: reddedilenIstek.id, durum: "iys_rejected" },
-      };
+    if (insertHatasi || !reddedilenIstek) {
+      return { httpStatus: 500, yanit: { hata: "İstek kaydedilemedi." } };
     }
+
+    return {
+      httpStatus: 200,
+      yanit: { mesajIstekId: reddedilenIstek.id, durum: "iys_rejected" },
+    };
   }
 
   // Sessiz saat: gönderimi iptal etmez, 08:00 TRT'ye erteler.
@@ -145,56 +189,99 @@ export async function tekMesajiIsle(
     return { httpStatus: 500, yanit: { hata: "İstek kaydedilemedi." } };
   }
 
-  // Sandbox: gerçek kredi düşmez, sağlayıcıya gidilmez (gönderim motoru sandbox adapter'ı kullanır).
-  let kalanBakiye: number;
-  let bakiyeVersiyonu: number;
-  if (sandbox) {
-    const { data: cuzdan } = await admin
-      .from("kredi_cuzdanlari")
-      .select("bakiye, bakiye_versiyonu")
-      .eq("proje_kullanici_id", projeKullanicisi.id)
-      .eq("kanal", govde.kanal)
-      .maybeSingle();
-    kalanBakiye = cuzdan?.bakiye ?? 0;
-    bakiyeVersiyonu = cuzdan?.bakiye_versiyonu ?? 0;
-  } else {
-    const { data: rezervasyon, error: rezervasyonHatasi } = await admin.rpc("kredi_rezerve_et", {
-      p_proje_kullanici_id: projeKullanicisi.id,
-      p_kanal: govde.kanal,
-      p_adet: 1,
-      p_istek_id: yeniIstek.id,
-    });
+  // Kredi rezervasyonu ve ham alıcı kaydı birbirinden bağımsız: paralel yazılır.
+  // Satır hâlâ "pending" — worker yalnız "queued" alır, yani ikisi de bitmeden
+  // gönderime çıkmaz. Ham alıcı yalnız gönderim tamamlanana kadar tutulur
+  // (mesaj_sonuclandir siler; KVKK) — başarısız yolda burada elle silinir.
+  // Sandbox: gerçek kredi düşmez, sağlayıcıya gidilmez (motor sandbox adapter'ı kullanır).
+  const [kredi, { error: aliciHatasi }] = await Promise.all([
+    sandbox
+      ? admin
+          .from("kredi_cuzdanlari")
+          .select("bakiye, bakiye_versiyonu")
+          .eq("proje_kullanici_id", projeKullanicisi.id)
+          .eq("kanal", govde.kanal)
+          .maybeSingle()
+          .then(({ data }) => ({
+            hata: false,
+            sonuc: { bakiye: data?.bakiye ?? 0, versiyon: data?.bakiye_versiyonu ?? 0 },
+          }))
+      : admin
+          .rpc("kredi_rezerve_et", {
+            p_proje_kullanici_id: projeKullanicisi.id,
+            p_kanal: govde.kanal,
+            p_adet: 1,
+            p_istek_id: yeniIstek.id,
+          })
+          .then(({ data, error }) => ({
+            hata: Boolean(error),
+            sonuc: (Array.isArray(data) ? data[0] : data) as
+              | { bakiye: number; versiyon: number }
+              | null
+              | undefined,
+          })),
+    admin.from("mesaj_alicilari").insert({ istek_id: yeniIstek.id, alici: govde.alici }),
+  ]);
 
-    if (rezervasyonHatasi) {
-      await admin
-        .from("mesaj_istekleri")
-        .update({ durum: "failed", hata_kodu: "rezervasyon_hatasi" })
-        .eq("id", yeniIstek.id);
-      return { httpStatus: 500, yanit: { hata: "Kredi rezervasyonu başarısız." } };
-    }
+  // Yetersiz kredi: mesaj reddedilmez, askıya alınır (durum 'pending' + askiya_alinma,
+  // ham alıcı bekler). Kredi yüklenince cüzdan tetikleyicisi geliş sırasıyla kuyruğa alır
+  // (20260930170000_kredi_askida_bildirim.sql). 202 kalıcı yanıttır: alt proje yeniden
+  // denemez, durumu GET /mesaj/:id ile izler. RPC başarısızsa eski davranışa (402) düşülür.
+  if (!kredi.hata && !kredi.sonuc && !aliciHatasi) {
+    const { data: askiSonucu } = await admin.rpc("mesaj_askiya_al", { p_istek_id: yeniIstek.id });
+    const aski = (Array.isArray(askiSonucu) ? askiSonucu[0] : askiSonucu) as
+      | { durum: "askida" | "queued"; bakiye: number; versiyon: number }
+      | null
+      | undefined;
 
-    const rezervasyonSonucu = Array.isArray(rezervasyon) ? rezervasyon[0] : rezervasyon;
-    if (!rezervasyonSonucu) {
-      await admin
-        .from("mesaj_istekleri")
-        .update({ durum: "failed", hata_kodu: "yetersiz_kredi" })
-        .eq("id", yeniIstek.id);
-      return { httpStatus: 402, yanit: { hata: "Yetersiz kredi." } };
+    if (aski?.durum === "askida") {
+      return {
+        httpStatus: 202,
+        yanit: {
+          mesajIstekId: yeniIstek.id,
+          durum: "askida",
+          sebep: "yetersiz_kredi",
+          kalanBakiye: aski.bakiye,
+          bakiyeVersiyonu: aski.versiyon,
+        },
+      };
     }
-    kalanBakiye = rezervasyonSonucu.bakiye;
-    bakiyeVersiyonu = rezervasyonSonucu.versiyon;
+    if (aski?.durum === "queued") {
+      // Askıya alınırken kredi gelmiş: tetikleyici rezerve edip kuyruğa aldı.
+      return {
+        httpStatus: 200,
+        yanit: {
+          mesajIstekId: yeniIstek.id,
+          durum: "queued",
+          kalanBakiye: aski.bakiye,
+          bakiyeVersiyonu: aski.versiyon,
+        },
+      };
+    }
   }
 
-  // Ham alıcı yalnız gönderim tamamlanana kadar tutulur (mesaj_sonuclandir siler; KVKK).
-  const { error: aliciHatasi } = await admin
-    .from("mesaj_alicilari")
-    .insert({ istek_id: yeniIstek.id, alici: govde.alici });
+  if (kredi.hata || !kredi.sonuc) {
+    const yetersiz = !kredi.hata;
+    await Promise.all([
+      aliciHatasi ? null : admin.from("mesaj_alicilari").delete().eq("istek_id", yeniIstek.id),
+      admin
+        .from("mesaj_istekleri")
+        .update({ durum: "failed", hata_kodu: yetersiz ? "yetersiz_kredi" : "rezervasyon_hatasi" })
+        .eq("id", yeniIstek.id),
+    ]);
+    return yetersiz
+      ? { httpStatus: 402, yanit: { hata: "Yetersiz kredi." } }
+      : { httpStatus: 500, yanit: { hata: "Kredi rezervasyonu başarısız." } };
+  }
+
   if (aliciHatasi) {
-    if (!sandbox) await admin.rpc("kredi_iade_et", { p_istek_id: yeniIstek.id });
-    await admin
-      .from("mesaj_istekleri")
-      .update({ durum: "failed", hata_kodu: "alici_kaydedilemedi" })
-      .eq("id", yeniIstek.id);
+    await Promise.all([
+      sandbox ? null : admin.rpc("kredi_iade_et", { p_istek_id: yeniIstek.id }),
+      admin
+        .from("mesaj_istekleri")
+        .update({ durum: "failed", hata_kodu: "alici_kaydedilemedi" })
+        .eq("id", yeniIstek.id),
+    ]);
     return { httpStatus: 500, yanit: { hata: "İstek kaydedilemedi." } };
   }
 
@@ -212,8 +299,8 @@ export async function tekMesajiIsle(
     yanit: {
       mesajIstekId: yeniIstek.id,
       durum: "queued",
-      kalanBakiye,
-      bakiyeVersiyonu,
+      kalanBakiye: kredi.sonuc.bakiye,
+      bakiyeVersiyonu: kredi.sonuc.versiyon,
       ...(sandbox ? { sandbox: true } : {}),
     },
   };

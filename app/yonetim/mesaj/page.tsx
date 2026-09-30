@@ -43,6 +43,7 @@ export default async function GenelBakisSayfasi({
     { count: acilBekleyen },
     kanalSagligi,
     { count: aktifDurdurma },
+    { count: askidakiMesaj },
   ] = await Promise.all([
     supabase
       .from("mesaj_istekleri")
@@ -147,6 +148,12 @@ export default async function GenelBakisSayfasi({
       .from("gonderim_durdurmalari")
       .select("*", { count: "exact", head: true })
       .eq("aktif", true),
+    // Kredisi bittiği için askıda bekleyen mesajlar (kredi yüklenince kendiliğinden gider).
+    supabase
+      .from("mesaj_istekleri")
+      .select("id", { count: "exact", head: true })
+      .eq("durum", "pending")
+      .not("askiya_alinma", "is", null),
   ]);
 
   const dusukBakiyeler = (tumCuzdanlar ?? [])
@@ -155,7 +162,8 @@ export default async function GenelBakisSayfasi({
 
   const toplamKanalMesaji = kanalSayimlari.reduce((t, k) => t + k.adet, 0);
   const hataOrani = donemToplam && donemToplam > 0 ? ((hatali ?? 0) / donemToplam) * 100 : 0;
-  const dikkatSayisi = (bagliDegilKimlikler?.length ?? 0) + (dusukBakiyeler?.length ?? 0);
+  const dikkatSayisi =
+    (bagliDegilKimlikler?.length ?? 0) + (dusukBakiyeler?.length ?? 0) + (askidakiMesaj ? 1 : 0);
 
   const teslimYuzdesi = bugun && bugun > 0 ? ((bugunIletilen ?? 0) / bugun) * 100 : null;
   const bugununTarihi = new Date().toLocaleDateString("tr-TR", {
@@ -233,6 +241,12 @@ export default async function GenelBakisSayfasi({
                   Düşük bakiye — {c.kanal}: {c.bakiye} adet (eşik {c.esik})
                 </li>
               ))}
+              {askidakiMesaj ? (
+                <li className="flex items-center gap-2 text-panel-text">
+                  <span className="h-1.5 w-1.5 rounded-full bg-panel-warning" />
+                  {askidakiMesaj.toLocaleString("tr-TR")} mesaj kredi bekliyor (askıda)
+                </li>
+              ) : null}
             </ul>
           )}
         </div>

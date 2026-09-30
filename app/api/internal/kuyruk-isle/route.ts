@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { imzaDogrula } from "@/lib/mesaj/imza";
 import { kuyruguIsle } from "@/lib/mesaj/gonderim-motoru";
 import { bekleyenWebhooklariIsle } from "@/lib/mesaj/webhook-isle";
+import { krediBakimTuru } from "@/lib/mesaj/kredi-bildirim";
 
 // Merkezi zamanlayıcının (Vodafone sunucusunda cron → deploy/kuyruk-isle.sh; şimdilik günde bir)
 // çağırdığı uç: kuyruğu işler, bekleyen webhook olaylarını yeniden dener.
@@ -38,9 +39,12 @@ export async function POST(req: NextRequest) {
 
   const admin = createAdminClient();
   try {
+    // Önce kredi bakımı: bakiyesi gelmiş askıdakiler bu turda kuyruğa girip gönderilsin;
+    // süresi dolan askıdakiler kapanır, bekleyen kredi bildirimleri gönderilir.
+    const kredi = await krediBakimTuru(admin);
     const kuyruk = await kuyruguIsle(admin, adet);
     const webhook = await bekleyenWebhooklariIsle(admin);
-    return NextResponse.json({ kuyruk, webhookIslenen: webhook });
+    return NextResponse.json({ kuyruk, webhookIslenen: webhook, kredi });
   } catch {
     return NextResponse.json({ hata: "Kuyruk işlenemedi." }, { status: 500 });
   }

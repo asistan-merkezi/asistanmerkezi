@@ -6,6 +6,7 @@ import { netgsmGonder } from "@/lib/saglayicilar/netgsm";
 import { resendGonder } from "@/lib/saglayicilar/resend";
 import { sandboxGonder } from "@/lib/saglayicilar/sandbox";
 import type { GonderimIstegi, GonderimSonucu } from "@/lib/saglayicilar/tipler";
+import { sinirliParalel } from "@/lib/paralel";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
@@ -38,6 +39,25 @@ export type KuyrukOzeti = {
 
 type KanalBaglami = { ayar: KanalAyari | null };
 
+// Bir kuyruk turu boyunca paylaşılan okumalar: kanal ayarı, Vault sırları ve gönderen
+// kimlikleri her satırda yeniden okunmaz (önceden her SMS için ayrı Vault RPC'si vardı).
+// Promise saklanır ki eşzamanlı satırlar aynı okumayı beklesin.
+type TurOnbellegi = {
+  kanal: Map<string, Promise<KanalBaglami>>;
+  gizli: Map<string, Promise<string | null>>;
+  gonderen: Map<string, Promise<GonderimIstegi["gonderen"]>>;
+};
+
+function bellekte<T>(harita: Map<string, Promise<T>>, anahtar: string, getir: () => Promise<T>): Promise<T> {
+  let deger = harita.get(anahtar);
+  if (!deger) {
+    deger = getir();
+    harita.set(anahtar, deger);
+    deger.catch(() => harita.delete(anahtar));
+  }
+  return deger;
+}
+
 // Üstel bekleme + jitter (%25): 30 sn, 60 sn, 120 sn …
 function beklemeHesapla(oncekiDeneme: number, saglayiciBeklemesi?: number): number {
   const ustel = TEMEL_BEKLEME_SN * 2 ** oncekiDeneme;
@@ -66,7 +86,11 @@ async function saglayiciyaGonder(
   satir: KuyrukSatiri,
   istek: GonderimIstegi,
   baglam: KanalBaglami,
+  onbellek: TurOnbellegi,
 ): Promise<GonderimSonucu> {
+  const gizli = (kanal: string, anahtar: string) =>
+    bellekte(onbellek.gizli, `${kanal}:${anahtar}`, () => gizliOku(admin, kanal, anahtar));
+
   const ayar = baglam.ayar;
   if (!ayar || !ayar.aktif || !ayar.apiUrl) {
     return { tur: "kalici_hata", kod: "saglayici_yapilandirilmamis" };
@@ -75,14 +99,14 @@ async function saglayiciyaGonder(
   if (satir.kanal === "sms") {
     const kullaniciKodu = metinAyar(ayar.ayarlar, "kullanici_kodu");
     const baslik = istek.gonderen.smsBasligi ?? metinAyar(ayar.ayarlar, "ortak_baslik");
-    const sifre = await gizliOku(admin, "sms", "sifre");
+    const sifre = await gizli("sms", "sifre");
     if (!kullaniciKodu || !sifre) return { tur: "kalici_hata", kod: "saglayici_yapilandirilmamis" };
     if (!baslik) return { tur: "kalici_hata", kod: "sms_basligi_yok" };
     return netgsmGonder({ apiUrl: ayar.apiUrl, kullaniciKodu, sifre, baslik }, istek);
   }
 
   if (satir.kanal === "eposta") {
-    const apiAnahtari = await gizliOku(admin, "eposta", "api_anahtari");
+    const apiAnahtari = await gizli("eposta", "api_anahtari");
     if (!apiAnahtari) return { tur: "kalici_hata", kod: "saglayici_yapilandirilmamis" };
     return resendGonder(
       {
@@ -101,7 +125,7 @@ async function saglayiciyaGonder(
 async function satiriIsle(
   admin: AdminClient,
   satir: KuyrukSatiri,
-  kanalBaglamlari: Map<string, Promise<KanalBaglami>>,
+  onbellek: TurOnbellegi,
 ): Promise<"gonderilen" | "ertelenen" | "basarisiz"> {
   let sonuc: GonderimSonucu;
 
@@ -114,18 +138,18 @@ async function satiriIsle(
       alici: satir.alici,
       icerik: satir.icerik,
       konu: satir.konu,
-      gonderen: await gonderenKimligi(admin, satir.gonderen_kimlik_id),
+      gonderen: await bellekte(onbellek.gonderen, satir.gonderen_kimlik_id ?? "", () =>
+        gonderenKimligi(admin, satir.gonderen_kimlik_id),
+      ),
     };
 
     if (satir.sandbox) {
       sonuc = sandboxGonder(istek);
     } else {
-      let baglam = kanalBaglamlari.get(satir.kanal);
-      if (!baglam) {
-        baglam = kanalAyariOku(admin, satir.kanal).then((ayar) => ({ ayar }));
-        kanalBaglamlari.set(satir.kanal, baglam);
-      }
-      sonuc = await saglayiciyaGonder(admin, satir, istek, await baglam);
+      const baglam = await bellekte(onbellek.kanal, satir.kanal, () =>
+        kanalAyariOku(admin, satir.kanal).then((ayar) => ({ ayar })),
+      );
+      sonuc = await saglayiciyaGonder(admin, satir, istek, baglam, onbellek);
     }
   }
 
@@ -165,19 +189,15 @@ export async function kuyruguIsle(admin: AdminClient, adet = 20): Promise<Kuyruk
 
   const satirlar = (data ?? []) as KuyrukSatiri[];
   const ozet: KuyrukOzeti = { alinan: satirlar.length, gonderilen: 0, ertelenen: 0, basarisiz: 0 };
-  const kanalBaglamlari = new Map<string, Promise<KanalBaglami>>();
+  const onbellek: TurOnbellegi = { kanal: new Map(), gizli: new Map(), gonderen: new Map() };
 
-  for (let i = 0; i < satirlar.length; i += ESZAMANLILIK) {
-    const grup = satirlar.slice(i, i + ESZAMANLILIK);
-    const sonuclar = await Promise.allSettled(grup.map((s) => satiriIsle(admin, s, kanalBaglamlari)));
-    sonuclar.forEach((s, j) => {
-      if (s.status === "fulfilled") {
-        ozet[s.value]++;
-      } else {
-        // Log'a yalnız istek id'si: ham alıcı/içerik/token asla basılmaz. Lease 5 dk sonra düşer, satır yeniden alınır.
-        console.error(`[gonderim] satır işlenemedi: ${grup[j].istek_id}`);
-      }
-    });
-  }
+  await sinirliParalel(satirlar, ESZAMANLILIK, async (satir) => {
+    try {
+      ozet[await satiriIsle(admin, satir, onbellek)]++;
+    } catch {
+      // Log'a yalnız istek id'si: ham alıcı/içerik/token asla basılmaz. Lease 5 dk sonra düşer, satır yeniden alınır.
+      console.error(`[gonderim] satır işlenemedi: ${satir.istek_id}`);
+    }
+  });
   return ozet;
 }
