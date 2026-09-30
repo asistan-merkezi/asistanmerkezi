@@ -2,8 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { NAV_OGELERI, SISTEM_YOLU } from "./nav-ogeleri";
-import { KANALLAR } from "@/lib/mesaj/kanal-tanimlari";
+import { NAV_OGELERI } from "./nav-ogeleri";
 
 export function PanelSidebar() {
   const yol = usePathname();
@@ -32,10 +31,9 @@ export function PanelSidebar() {
         <nav className="flex flex-col gap-1 px-3">
           {NAV_OGELERI.map((oge) => {
             const aktif = oge.hazir && (oge.yol === "/yonetim/mesaj" ? yol === oge.yol : yol.startsWith(oge.yol));
-            const altAcik = oge.yol === SISTEM_YOLU && yol.startsWith(SISTEM_YOLU);
             return (
-              <div key={oge.yol} className="flex flex-col gap-1">
               <Link
+                key={oge.yol}
                 href={oge.hazir ? oge.yol : "#"}
                 aria-disabled={!oge.hazir}
                 className={
@@ -55,30 +53,6 @@ export function PanelSidebar() {
                   </span>
                 )}
               </Link>
-              {altAcik && (
-                <div className="ml-5 flex flex-col gap-0.5 border-l border-panel-sidebar-border pl-2">
-                  {KANALLAR.map((k) => {
-                    const altYol = `${SISTEM_YOLU}/${k.slug}`;
-                    const altAktif = yol === altYol;
-                    return (
-                      <Link
-                        key={k.slug}
-                        href={altYol}
-                        className={
-                          "flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] transition-colors " +
-                          (altAktif
-                            ? "bg-white/10 font-semibold text-white"
-                            : "text-panel-text-sidebar hover:bg-white/5 hover:text-white")
-                        }
-                      >
-                        <span className="material-symbols-outlined text-[16px]">{k.ikon}</span>
-                        {k.slug === "odeme" ? "Ödeme Bağlantısı" : k.ad}
-                      </Link>
-                    );
-                  })}
-                </div>
-              )}
-              </div>
             );
           })}
         </nav>
