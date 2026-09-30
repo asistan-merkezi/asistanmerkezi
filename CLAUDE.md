@@ -184,7 +184,7 @@ Giden webhook (proje `webhook_url`'ine): `mesaj.gonderildi`, `mesaj.teslim`, `me
 - Varsayılan gönderen: `bildirim@asistanmerkezi.com` (modül kendi doğrulanmış domainini bağlarsa o kullanılır).
 - Modül ekleme, hub'ın modül listesine satır eklemekle başlar; tanıtım listesi dışına modül çıkılmaz.
 - **RLS kontrolü:** yeni tablo/migration sonrası `npm run rls:kontrol` çalıştırılır (`scripts/rls-kontrol.mjs`, RLS'i kapalı tablo varsa hata verir). Aynısı `.github/workflows/rls-kontrol.yml` ile migration değişen PR'larda koşar (repo secret'ı `SUPABASE_DB_PASSWORD` gerekli).
-- Ek dokümanlar `docs/` altında: `hata-kodlari.md` (API hata kataloğu), `entegrasyon-checklist.md` (alt proje bağlama + smoke test), `kararlar.md` (kısa ADR). Yeni API hatası eklenince kataloğu da güncelle.
+- Ek dokümanlar `docs/` altında: `hata-kodlari.md` (API hata kataloğu), `entegrasyon-checklist.md` (alt proje bağlama + smoke test), `kararlar.md` (kısa ADR), `vodafone-tasima.md` (Vodafone Cloud kurulum/taşıma runbook'u). Yeni API hatası eklenince kataloğu da güncelle.
 - Repolar `asistan-merkezi` GitHub org'unda; skill/agent paylaşımı `claude-config` reposundan merkezî bağlanır.
 
 ## 8. Yol Haritası
@@ -208,6 +208,7 @@ Giden webhook (proje `webhook_url`'ine): `mesaj.gonderildi`, `mesaj.teslim`, `me
 - [ ] **Mesaj Merkezi Faz 1** — (1) `asistan_mesaj` migration'ı ✅, (2) `/api/v1` API yüzeyi ✅ (`mesaj/gonder`, `mesaj/toplu`, `mesaj/:id`, `kredi/bakiye`, `kredi/yukleme-talebi`, `kullanici/senkron` — yalnız `whatsapp/baglanti` bekliyor, Meta Tech Provider önkoşulu), (3) panel ekranları ✅ (Genel Bakış/Projeler/Kullanıcılar/Mesaj Takibi/Sistem›Bağlantı Ayarları — Faz 2'den erken taşındı; Finans alt bölümleri ve Sistem›Şablonlar/Zamanlayıcı "Yakında"), (4) klinik `merkez-client.ts`'in bağlanması — sıradaki (klinik repo eldeyken)
 - [x] Kayıt formunun §5.1 kapsamına tamamlanması (kişisel/işletme bilgileri, vergi no, görev, tam yetkili, sözleşme onayı — `core.tenants` + `core.profiles.ad_soyad`); tam yetkiliye onay-linkli mail (§5.2) Resend kurulana kadar gönderilmiyor
 - [ ] Klinik Asistanı'nın tamamlanması — **öncelik**; klinik mesaj modülü merkeze bağlı olduğu için Mesaj Merkezi Faz 1 bunun önkoşuludur, rakibi değil
+- [ ] **Vodafone Cloud kurulumu** (karar 2026-09-30: veritabanı + uygulama birlikte sunucuda, self-hosted Supabase + Docker + Caddy; veri sıfırdan, Frankfurt'tan taşınmıyor). Repoda hazır: `Dockerfile`, `deploy/`, `npm run db:kur`, `/api/health`, runbook `docs/vodafone-tasima.md`. Bekleyen: sunucu erişimi, kurulum, doğrulama; bitince §2 Hosting/pooler satırları güncellenecek. "Yurt içi" iddiası üçüncü taraf servisler (Resend, Claude API, Meta, Cloudflare proxy) nedeniyle daraltılmalı (runbook §8)
 - [ ] Monorepo geçişi — bilinçli olarak ertelendi, klinik bitince ele alınacak
 
 **Açık sorunlar:**

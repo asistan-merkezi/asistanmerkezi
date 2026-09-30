@@ -1,25 +1,12 @@
 // RLS tarama testi (CLAUDE.md §4: tenant izolasyonu RLS ile zorunlu).
 // Sistem dışı tüm şemalarda RLS'i kapalı tablo varsa çıkış kodu 1 ile biter.
 // Kullanım: npm run rls:kontrol   (SUPABASE_DB_PASSWORD .env.local'dan ya da ortamdan)
-import pg from "pg";
-
-const sifre = process.env.SUPABASE_DB_PASSWORD;
-if (!sifre) {
-  console.error("SUPABASE_DB_PASSWORD tanımlı değil.");
-  process.exit(2);
-}
+import { istemciOlustur } from "./db-baglanti.mjs";
 
 // Bilinçli istisnalar: "şema.tablo" — her biri için gerekçe yazılmalı.
 const ISTISNALAR = new Set([]);
 
-const client = new pg.Client({
-  host: process.env.SUPABASE_DB_HOST ?? "aws-0-eu-central-1.pooler.supabase.com",
-  port: 5432, // session mode
-  user: "postgres.epzpbfgvekfdbzierrss",
-  password: sifre,
-  database: "postgres",
-  ssl: { rejectUnauthorized: false },
-});
+const client = istemciOlustur();
 
 await client.connect();
 try {

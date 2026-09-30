@@ -1,0 +1,12 @@
+# Otomatik HTTPS (Let's Encrypt). Cloudflare'de kayıtlar ilk sertifika alınana kadar
+# "DNS only" (gri bulut) olmalı; sonra proxy açılırsa SSL modu "Full (strict)" olmalı.
+{$UYGULAMA_ALAN_ADI} {
+	encode zstd gzip
+	reverse_proxy uygulama:3000
+}
+
+# Supabase API geçidi (Kong) — auth, REST, vault RPC'leri.
+{$API_ALAN_ADI} {
+	encode zstd gzip
+	reverse_proxy kong:8000
+}

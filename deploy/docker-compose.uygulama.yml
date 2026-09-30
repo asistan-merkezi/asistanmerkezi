@@ -1,0 +1,43 @@
+# Uygulama + reverse proxy. Supabase ayrı compose'ta (resmî supabase/docker), aynı ağa bağlanır.
+# Kullanım (sunucuda, bu klasörde):  docker compose -f docker-compose.uygulama.yml --env-file .env.uretim up -d --build
+name: asistanmerkezi
+
+services:
+  uygulama:
+    build:
+      context: ..
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      MERKEZ_INTERNAL_SECRET: ${MERKEZ_INTERNAL_SECRET:-}
+    networks: [varsayilan, supabase]
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    environment:
+      UYGULAMA_ALAN_ADI: ${UYGULAMA_ALAN_ADI}
+      API_ALAN_ADI: ${API_ALAN_ADI}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_veri:/data
+      - caddy_ayar:/config
+    depends_on: [uygulama]
+    networks: [varsayilan, supabase]
+
+volumes:
+  caddy_veri:
+  caddy_ayar:
+
+networks:
+  varsayilan:
+  supabase:
+    # Resmî Supabase compose'unun ağı; adı `docker network ls` ile doğrulayın.
+    external: true
+    name: supabase_default
