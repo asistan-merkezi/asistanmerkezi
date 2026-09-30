@@ -1,0 +1,18 @@
+name: RLS kontrolü
+on:
+  pull_request:
+    paths: ["supabase/migrations/**", "scripts/rls-kontrol.mjs"]
+  push:
+    branches: [main]
+    paths: ["supabase/migrations/**", "scripts/rls-kontrol.mjs"]
+jobs:
+  rls:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm ci
+      - run: node scripts/rls-kontrol.mjs
+        env:
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}

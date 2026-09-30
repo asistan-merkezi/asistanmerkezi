@@ -151,7 +151,7 @@ Hiyerarşi: **kategori → proje → proje kullanıcısı → gönderen kimliği
 
 **Zamanlanmış işler (pull modeli).** Tüm cron mantığı merkezdedir; hiçbir dikeyde zamanlanmış görev yoktur. Merkez `planli_gorevler` tanımına göre alt projenin `/api/internal/*` endpoint'ini imzalı çağırır; alt proje kendi kurallarını uygulayıp kendi kuyruğuna yazar. Merkez ham randevu/hasta verisi çekmez (KVKK: gereksiz aktarım yok). Vercel cron kullanılmaz, QStash Schedules kullanılır. Klinik tanımları (UTC): hatırlatma-sabah `0 5 * * *`, hatırlatma-akşam `0 15 * * *`, kuyruk-isle `*/5 * * * *`, kredi-senkron `0 * * * *`.
 
-**Güvenlik.** Alt proje → merkez: `X-Api-Key` (hash karşılaştırması) + `X-Imza: t=<unix>,v1=<hmac>` (taban `${t}.${rawBody}`, ±300 sn, `timingSafeEqual`). Merkez → alt proje: aynı desen, `MERKEZ_INTERNAL_SECRET`. Sağlayıcı webhook'ları imza doğrulanmadan işlenmez (ham kayıt + hızlı 200, işleme asenkron). Rate limit iki katmanlı: sağlayıcı + proje kullanıcısı. Panelde telefon maskeli (`+90 532 *** ** 88`); tam numarayı yalnız `super_admin` görür ve görüntüleme audit'e yazılır. Log'larda ham telefon/e-posta/içerik/token asla basılmaz.
+**Güvenlik.** Alt proje → merkez: `X-Api-Key` (hash karşılaştırması) + `X-Imza: t=<unix>,v1=<hmac>` (taban `${t}.${rawBody}`, ±300 sn, `timingSafeEqual`). Merkez → alt proje: aynı desen, `MERKEZ_INTERNAL_SECRET`. Sağlayıcı webhook'ları imza doğrulanmadan işlenmez (ham kayıt + hızlı 200, işleme asenkron). Rate limit iki katmanlı: sağlayıcı + proje kullanıcısı. **Hedef sayılar (henüz uygulanmıyor; Netgsm/Meta gerçek limitleriyle doğrulanıp uygulanacak):** proje kullanıcısı başına dakikada 50 / saatte 500 mesaj, proje başına saatte 5.000; aşımda `429` + `Retry-After`. Sağlayıcı katmanı ilgili sağlayıcının yayımlanmış limitinin altında tutulur. Kredi rezervasyonu zararı bakiyeyle sınırlar; hız limiti sızan anahtarın hızlı tükenmesini önler. Panelde telefon maskeli (`+90 532 *** ** 88`); tam numarayı yalnız `super_admin` görür ve görüntüleme audit'e yazılır. Log'larda ham telefon/e-posta/içerik/token asla basılmaz.
 
 ### 6.4 Panel (`/yonetim/mesaj`)
 Yalnızca Asistan Merkezi ekibine açıktır; kiracılar buraya giriş yapmaz, kendi kullanım/kredi ekranlarını kendi modüllerinde görür.
@@ -179,9 +179,12 @@ Giden webhook (proje `webhook_url`'ine): `mesaj.gonderildi`, `mesaj.teslim`, `me
 - Rol adları ve durum değerleri veritabanında İngilizce enum, arayüzde Türkçe etiket.
 - Yetki dinamiktir: roller sabit kodlanmaz, tenant bazında tanımlanır.
 - Zaman: DB'de `timestamptz`; iş kuralları **Europe/Istanbul** (sabit UTC+3), cron ifadeleri **UTC**. Dönüşüm tek yerde (`lib/zaman.ts`).
+- **Doğrulanacak (hukuk):** `iys_izinleri` yalnız son durumu tutuyor; şikayette ispat için izin zamanı/kaynağı geçmişi değişmez tutulmalı ve saklama süresi (şu an 2 yıl) mevzuatla teyit edilmeli. Ticari mesaj içeriği 90 gün sonra redakte olsa da `icerik_hash` kalır.
 - Saklama: `mesaj_loglari` içeriği 90 gün sonra redakte edilir (meta veri kalır); `kredi_hareketleri` ve `odemeler` mali kayıt, 10 yıl; `iys_izinleri` son durum + 2 yıl; bağlantı kopan `gonderen_kimlikleri` token'ı hemen silinir. Kredi hareketlerinde soft delete yok.
 - Varsayılan gönderen: `bildirim@asistanmerkezi.com` (modül kendi doğrulanmış domainini bağlarsa o kullanılır).
 - Modül ekleme, hub'ın modül listesine satır eklemekle başlar; tanıtım listesi dışına modül çıkılmaz.
+- **RLS kontrolü:** yeni tablo/migration sonrası `npm run rls:kontrol` çalıştırılır (`scripts/rls-kontrol.mjs`, RLS'i kapalı tablo varsa hata verir). Aynısı `.github/workflows/rls-kontrol.yml` ile migration değişen PR'larda koşar (repo secret'ı `SUPABASE_DB_PASSWORD` gerekli).
+- Ek dokümanlar `docs/` altında: `hata-kodlari.md` (API hata kataloğu), `entegrasyon-checklist.md` (alt proje bağlama + smoke test), `kararlar.md` (kısa ADR). Yeni API hatası eklenince kataloğu da güncelle.
 - Repolar `asistan-merkezi` GitHub org'unda; skill/agent paylaşımı `claude-config` reposundan merkezî bağlanır.
 
 ## 8. Yol Haritası
@@ -194,6 +197,7 @@ Giden webhook (proje `webhook_url`'ine): `mesaj.gonderildi`, `mesaj.teslim`, `me
 | Faz 4 | Ortak modüller (personel, muhasebe, randevu) paylaşıma açılır |
 | Faz 5 | Monorepo geçişi (pnpm workspaces + Turborepo) |
 | Sonra | Mesaj Merkezi Faz 2: DLQ + inceleme paneli, circuit breaker, WhatsApp `quality_rating` senkronu, aylık partition, sandbox modu, kampanya kavramı, API key rotasyon UI |
+| Sonra (2026-09-30 değerlendirmesi) | **Öncelikli:** sandbox modu (klinik entegrasyonundan önce), hız limiti uygulaması (§6.3), kanal/proje "gönderimi durdur" kill switch'i + panelde tek tuş, `/api/health` + Genel Bakış'ta sistem sağlığı kutusu, Vodafone taşıması öncesi yedek RPO/RTO ve migration rollback (expand-contract) notu. **Daha sonra:** yedek sağlayıcı fallback'i (SMS'te yedek için ayrı BTK başlık onayı gerekir; gönderim kodu önce `saglayici_ayarlari`'nı okumalı), anomali tespiti + hesap dondurma, İYS dış senkron ve izin geçmişi, API versiyonlama/sunset politikası, secret rotasyon takvimi, incident runbook, idempotency kayıtları 24 saat temizliği |
 
 ## 9. Güncel Durum
 
