@@ -7,7 +7,7 @@ import { imzaDogrula } from "@/lib/mesaj/imza";
 import { kuyruguIsle } from "@/lib/mesaj/gonderim-motoru";
 import { bekleyenWebhooklariIsle } from "@/lib/mesaj/webhook-isle";
 
-// Merkezi zamanlayıcının (Vodafone sunucusunda cron → deploy/kuyruk-isle.sh) dakikada bir
+// Merkezi zamanlayıcının (Vodafone sunucusunda cron → deploy/kuyruk-isle.sh; şimdilik günde bir)
 // çağırdığı uç: kuyruğu işler, bekleyen webhook olaylarını yeniden dener.
 // Kimlik: X-Imza: t=<unix>,v1=<hmac> — MERKEZ_INTERNAL_SECRET ile (CLAUDE.md §6.3 Güvenlik).
 // Eşzamanlı iki çağrı güvenlidir: satırlar lease + skip locked ile alınır.
