@@ -18,7 +18,7 @@ const ortak = z.object({
 
 export async function kanalAyariKaydet(slug: string, formData: FormData) {
   const personel = await requirePersonel();
-  const yol = `/yonetim/mesaj/kanallar/${slug}`;
+  const yol = `/yonetim/mesaj/sistem/${slug}`;
   const kanal = kanalBul(slug);
   if (!kanal || personel.rol !== "super_admin") redirect(`${yol}?durum=yetkisiz`);
 
