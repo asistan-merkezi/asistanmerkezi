@@ -47,10 +47,10 @@ export default async function MesajGunluguSayfasi({
         <div className="flex items-center gap-2 text-xs text-panel-text-secondary">
           <span>Operasyon Konsolu</span>
           <span>/</span>
-          <span className="font-semibold text-panel-primary">Mesaj Günlüğü</span>
+          <span className="font-semibold text-panel-primary">Mesaj Takibi</span>
         </div>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight text-panel-text">
-          Mesaj Günlüğü
+          Mesaj Takibi
         </h1>
       </div>
 
