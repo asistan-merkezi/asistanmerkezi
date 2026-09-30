@@ -1,10 +1,6 @@
-import { YakindaEkrani } from "../_bilesenler/yakinda-ekrani";
+import { redirect } from "next/navigation";
 
+// Ödemeler, Finans bölümüne taşındı.
 export default function OdemelerSayfasi() {
-  return (
-    <YakindaEkrani
-      baslik="Ödemeler"
-      aciklama="Kredi paketi alımları ve mutabakat kayıtları — ödeme tahsilat sağlayıcısı seçilene kadar bu ekran açılmayacak (CLAUDE.md §9)."
-    />
-  );
+  redirect("/yonetim/mesaj/finans/odemeler");
 }

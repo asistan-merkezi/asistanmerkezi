@@ -1,10 +1,6 @@
-import { YakindaEkrani } from "../_bilesenler/yakinda-ekrani";
+import { redirect } from "next/navigation";
 
-export default function SablonlarSayfasi() {
-  return (
-    <YakindaEkrani
-      baslik="Şablonlar"
-      aciklama="WhatsApp HSM şablon durumları — Meta Tech Provider başvurusu tamamlanana kadar bu ekran açılmayacak (CLAUDE.md §9)."
-    />
-  );
+// Şablonlar, Sistem bölümüne taşındı.
+export default function Sayfa() {
+  redirect("/yonetim/mesaj/sistem/sablonlar");
 }

@@ -3,8 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { NAV_OGELERI, SISTEM_YOLU } from "./nav-ogeleri";
-import { KANALLAR } from "@/lib/mesaj/kanal-tanimlari";
+import { NAV_OGELERI } from "./nav-ogeleri";
 
 const ALT_NAV_YOLLARI = [
   "/yonetim/mesaj",
@@ -82,8 +81,8 @@ export function MobilAltNav() {
           </div>
           <div className="space-y-1">
             {CEKMECE_OGELERI.map((oge) => (
-              <div key={oge.yol}>
               <Link
+                key={oge.yol}
                 href={oge.hazir ? oge.yol : "#"}
                 aria-disabled={!oge.hazir}
                 onClick={(e) => {
@@ -130,22 +129,6 @@ export function MobilAltNav() {
                   </span>
                 )}
               </Link>
-              {oge.yol === SISTEM_YOLU && (
-                <div className="ml-6 mt-1 flex flex-col gap-0.5 border-l border-panel-border pl-3">
-                  {KANALLAR.map((k) => (
-                    <Link
-                      key={k.slug}
-                      href={`${SISTEM_YOLU}/${k.slug}`}
-                      onClick={() => setMenuAcik(false)}
-                      className="flex items-center gap-2 rounded-lg px-2 py-2 text-sm text-panel-text hover:bg-panel-canvas"
-                    >
-                      <span className="material-symbols-outlined text-[18px] text-panel-primary">{k.ikon}</span>
-                      {k.slug === "odeme" ? "Ödeme Bağlantısı" : k.ad}
-                    </Link>
-                  ))}
-                </div>
-              )}
-              </div>
             ))}
           </div>
         </div>

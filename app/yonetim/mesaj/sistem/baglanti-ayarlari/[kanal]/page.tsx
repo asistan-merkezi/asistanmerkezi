@@ -51,6 +51,10 @@ export default async function KanalSayfasi({
             Sistem
           </Link>
           <span>/</span>
+          <Link href="/yonetim/mesaj/sistem/baglanti-ayarlari" className="hover:text-panel-primary">
+            Bağlantı Ayarları
+          </Link>
+          <span>/</span>
           <span className="font-semibold text-panel-primary">{kanal.ad}</span>
         </div>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight text-panel-text">
@@ -63,7 +67,7 @@ export default async function KanalSayfasi({
         {KANALLAR.map((k) => (
           <Link
             key={k.slug}
-            href={`/yonetim/mesaj/sistem/${k.slug}`}
+            href={`/yonetim/mesaj/sistem/baglanti-ayarlari/${k.slug}`}
             className={
               "rounded-full border px-3 py-1 text-xs transition-colors " +
               (k.slug === kanal.slug

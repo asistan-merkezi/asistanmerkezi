@@ -162,7 +162,7 @@ Yalnızca Asistan Merkezi ekibine açıktır; kiracılar buraya giriş yapmaz, k
 | Projeler | Kullanıcı listesi, API key durumu, webhook sağlığı, kanal bağlantıları |
 | Kullanıcılar | Gün/ay/yıl kırılımlı kullanım + cari (bakiye, yükleme geçmişi) aynı ekranda |
 | Mesaj Günlüğü | İki sekme — **Bağlantılar** (kanal başına, SMS/WhatsApp/E-posta/Telegram: tüm projelerdeki gönderen kimliği bağlantı durumu) ve **Projeler** (kategori kutucukları → proje kutucukları → kanal kutucukları → seçili proje+kanal için mesaj dökümü: saat, kaynak bölüm, maskeli alıcı, durum, hata kodu, sağlayıcı yanıtı) |
-| Ödemeler | Ödeme günü, tutar, eklenen paket, manuel kredi ekleme (audit'li, yalnız `super_admin`) |
+| Finans | Alt bölümler: **Ödemeler** (ödeme günü, tutar, eklenen paket, manuel kredi ekleme — audit'li, yalnız `super_admin`), Personel, Gelen Faturalar, Giderler, Raporlar (son dördü "Yakında") |
 | Şablonlar / Zamanlayıcı / Sistem | WhatsApp şablon durumları; planlı görevler + son çalışmalar + elle tetikleme; audit log, webhook olayları |
 
 ### 6.5 API yüzeyi (`/api/v1`)
