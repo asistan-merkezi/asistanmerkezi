@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { createMesajClient } from "@/lib/supabase/mesaj-server";
-import { istanbulGunBaslangici, istanbulAyBaslangici, saatOncesi } from "@/lib/zaman";
+import { istanbulGunBaslangici, saatOncesi } from "@/lib/zaman";
+import { donemCoz } from "@/lib/donem";
+import { DonemFiltresi } from "./_bilesenler/donem-filtresi";
 import { requirePersonel } from "@/lib/yetki";
 import { KanalRozeti, DurumRozeti } from "./_bilesenler/rozetler";
 import { operatorGoruntuAdi } from "./_bilesenler/operator";
@@ -15,18 +17,24 @@ const KANAL_SAGLIK_ETIKETI: Record<(typeof KANALLAR)[number], string> = {
   telegram: "Telegram",
 };
 
-export default async function GenelBakisSayfasi() {
+export default async function GenelBakisSayfasi({
+  searchParams,
+}: {
+  searchParams: Promise<{ donem?: string; t?: string }>;
+}) {
+  const { donem: donemParam, t: tParam } = await searchParams;
+  const donem = donemCoz(donemParam, tParam);
   const supabase = await createMesajClient();
   const { email, adSoyad } = await requirePersonel();
 
   const gunBaslangici = istanbulGunBaslangici().toISOString();
-  const ayBaslangici = istanbulAyBaslangici().toISOString();
   const yirmiDortSaatOnce = saatOncesi(24).toISOString();
 
   const [
     { count: bugun },
     { count: bugunIletilen },
-    { count: buAy },
+    { count: donemToplam },
+    { count: donemIletilen },
     { count: hatali },
     kanalSayimlari,
     { data: bagliDegilKimlikler },
@@ -34,6 +42,7 @@ export default async function GenelBakisSayfasi() {
     { count: bekleyenKuyruk },
     { count: acilBekleyen },
     kanalSagligi,
+    { count: aktifDurdurma },
   ] = await Promise.all([
     supabase
       .from("mesaj_istekleri")
@@ -47,19 +56,28 @@ export default async function GenelBakisSayfasi() {
     supabase
       .from("mesaj_istekleri")
       .select("*", { count: "exact", head: true })
-      .gte("created_at", ayBaslangici),
+      .gte("created_at", donem.baslangic)
+      .lt("created_at", donem.bitis),
+    supabase
+      .from("mesaj_istekleri")
+      .select("*", { count: "exact", head: true })
+      .eq("durum", "sent")
+      .gte("created_at", donem.baslangic)
+      .lt("created_at", donem.bitis),
     supabase
       .from("mesaj_istekleri")
       .select("*", { count: "exact", head: true })
       .eq("durum", "failed")
-      .gte("created_at", ayBaslangici),
+      .gte("created_at", donem.baslangic)
+      .lt("created_at", donem.bitis),
     Promise.all(
       KANALLAR.map(async (kanal) => {
         const { count } = await supabase
           .from("mesaj_istekleri")
           .select("*", { count: "exact", head: true })
           .eq("kanal", kanal)
-          .gte("created_at", ayBaslangici);
+          .gte("created_at", donem.baslangic)
+          .lt("created_at", donem.bitis);
         return { kanal, adet: count ?? 0 };
       }),
     ),
@@ -125,6 +143,10 @@ export default async function GenelBakisSayfasi() {
         return { kanal, basariOrani, ortalamaGecikmeSn, durum };
       }),
     ),
+    supabase
+      .from("gonderim_durdurmalari")
+      .select("*", { count: "exact", head: true })
+      .eq("aktif", true),
   ]);
 
   const dusukBakiyeler = (tumCuzdanlar ?? [])
@@ -132,7 +154,7 @@ export default async function GenelBakisSayfasi() {
     .slice(0, 5);
 
   const toplamKanalMesaji = kanalSayimlari.reduce((t, k) => t + k.adet, 0);
-  const hataOrani = buAy && buAy > 0 ? ((hatali ?? 0) / buAy) * 100 : 0;
+  const hataOrani = donemToplam && donemToplam > 0 ? ((hatali ?? 0) / donemToplam) * 100 : 0;
   const dikkatSayisi = (bagliDegilKimlikler?.length ?? 0) + (dusukBakiyeler?.length ?? 0);
 
   const teslimYuzdesi = bugun && bugun > 0 ? ((bugunIletilen ?? 0) / bugun) * 100 : null;
@@ -145,6 +167,15 @@ export default async function GenelBakisSayfasi() {
 
   return (
     <>
+    {(aktifDurdurma ?? 0) > 0 && (
+      <Link
+        href="/yonetim/mesaj/sistem/acil-durdurma"
+        className="mb-4 flex items-center gap-2 rounded-md border border-panel-danger bg-panel-danger-bg px-4 py-3 text-sm font-semibold text-panel-danger"
+      >
+        <span className="material-symbols-outlined text-[18px]">emergency_home</span>
+        Gönderim durdurulmuş: {aktifDurdurma} aktif durdurma var — yönet
+      </Link>
+    )}
     <div className="hidden flex-col gap-6 md:flex">
       <div>
         <div className="flex items-center gap-2 text-xs text-panel-text-secondary">
@@ -157,10 +188,12 @@ export default async function GenelBakisSayfasi() {
         </h1>
       </div>
 
+      <DonemFiltresi donem={donem} yol="/yonetim/mesaj" />
+
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2 grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <KpiKarti baslik="Bugün Gönderilen" deger={bugun ?? 0} />
-          <KpiKarti baslik="Bu Ay Gönderilen" deger={buAy ?? 0} />
+          <KpiKarti baslik="Toplam İstek" deger={donemToplam ?? 0} altYazi={donem.etiket} />
+          <KpiKarti baslik="İletilen" deger={donemIletilen ?? 0} altYazi={donem.etiket} />
           <KpiKarti
             baslik="Hata Oranı"
             deger={`%${hataOrani.toFixed(1)}`}
@@ -207,15 +240,14 @@ export default async function GenelBakisSayfasi() {
 
       <div className="rounded-lg border border-panel-border bg-panel-surface p-4 shadow-sm">
         <h2 className="mb-1 text-sm font-semibold text-panel-text">
-          Kanal Kırılımı — Bu Ay
+          Kanal Kırılımı — {donem.etiket}
         </h2>
         <p className="mb-4 text-xs text-panel-text-secondary">
           Günlük toplam dağılım ve iletim hacimleri
         </p>
         {toplamKanalMesaji === 0 ? (
           <p className="py-8 text-center text-sm text-panel-text-secondary">
-            Henüz gönderim yok — ilk mesaj gönderildiğinde burada kanal
-            dağılımı görünecek.
+            Bu dönemde gönderim yok.
           </p>
         ) : (
           <div className="flex flex-wrap gap-4">

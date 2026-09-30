@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { createMesajClient } from "@/lib/supabase/mesaj-server";
 import { KanalRozeti, baglantiDurumuRozeti, mesajDurumRozeti } from "../_bilesenler/rozetler";
+import { DonemFiltresi } from "../_bilesenler/donem-filtresi";
+import { donemCoz, type DonemSonucu } from "@/lib/donem";
 
 const SAYFA_BOYU = 20;
 const BOLUM_DAGILIMI_ORNEKLEM = 500;
@@ -16,6 +18,8 @@ type AramaParametreleri = {
   durum?: string;
   sayfa?: string;
   secili?: string;
+  donem?: string;
+  t?: string;
 };
 
 export default async function MesajGunluguSayfasi({
@@ -267,6 +271,10 @@ async function ProjelerSekmesi({
   const seciliKanal: Kanal | null =
     seciliProje && KANALLAR.includes(params.kanal as Kanal) ? (params.kanal as Kanal) : null;
 
+  const donem = donemCoz(params.donem, params.t);
+  const digerParametreler: Record<string, string | undefined> = { ...params };
+  for (const anahtar of ["donem", "t", "sayfa", "secili"]) delete digerParametreler[anahtar];
+
   // mesaj_istekleri'ni projeye göre süzmek için proje_kullanici_id listesi
   // gerekiyor. Ham `proje_kullanicilari` tablosunun RLS'i yalnız super_admin'e
   // açık (§6.2) — bu yüzden diğer panel sayfalarıyla aynı şekilde maskeli
@@ -297,21 +305,32 @@ async function ProjelerSekmesi({
           projeler={(projeler ?? []).filter((p) => p.kategori_id === seciliKategori.id)}
           paramliYol={paramliYol}
         />
-      ) : !seciliKanal ? (
-        <KanalKutulari
-          supabase={supabase}
-          projeKullaniciIdleri={projeKullaniciIdleri}
-          paramliYol={paramliYol}
-        />
       ) : (
-        <MesajDokumu
-          supabase={supabase}
-          proje={seciliProje}
-          kanal={seciliKanal}
-          projeKullaniciIdleri={projeKullaniciIdleri}
-          params={params}
-          paramliYol={paramliYol}
-        />
+        <>
+          <DonemFiltresi
+            donem={donem}
+            yol="/yonetim/mesaj/mesaj-gunlugu"
+            diger={digerParametreler}
+          />
+          {!seciliKanal ? (
+            <KanalKutulari
+              supabase={supabase}
+              projeKullaniciIdleri={projeKullaniciIdleri}
+              donem={donem}
+              paramliYol={paramliYol}
+            />
+          ) : (
+            <MesajDokumu
+              supabase={supabase}
+              proje={seciliProje}
+              kanal={seciliKanal}
+              projeKullaniciIdleri={projeKullaniciIdleri}
+              donem={donem}
+              params={params}
+              paramliYol={paramliYol}
+            />
+          )}
+        </>
       )}
     </div>
   );
@@ -436,10 +455,12 @@ function ProjeKutulari({
 async function KanalKutulari({
   supabase,
   projeKullaniciIdleri,
+  donem,
   paramliYol,
 }: {
   supabase: Awaited<ReturnType<typeof createMesajClient>>;
   projeKullaniciIdleri: string[];
+  donem: DonemSonucu;
   paramliYol: (ek: Record<string, string | undefined>) => string;
 }) {
   const sayimlar =
@@ -451,7 +472,9 @@ async function KanalKutulari({
               .from("mesaj_istekleri")
               .select("id", { count: "exact", head: true })
               .eq("kanal", k)
-              .in("proje_kullanici_id", projeKullaniciIdleri),
+              .in("proje_kullanici_id", projeKullaniciIdleri)
+              .gte("created_at", donem.baslangic)
+              .lt("created_at", donem.bitis),
           ),
         );
 
@@ -478,6 +501,7 @@ async function MesajDokumu({
   proje,
   kanal,
   projeKullaniciIdleri,
+  donem,
   params,
   paramliYol,
 }: {
@@ -485,6 +509,7 @@ async function MesajDokumu({
   proje: { id: string; ad: string };
   kanal: Kanal;
   projeKullaniciIdleri: string[];
+  donem: DonemSonucu;
   params: AramaParametreleri;
   paramliYol: (ek: Record<string, string | undefined>) => string;
 }) {
@@ -508,6 +533,8 @@ async function MesajDokumu({
     )
     .in("proje_kullanici_id", projeKullaniciIdleri)
     .eq("kanal", kanal)
+    .gte("created_at", donem.baslangic)
+    .lt("created_at", donem.bitis)
     .order("created_at", { ascending: false })
     .range(baslangic, baslangic + SAYFA_BOYU - 1);
 
@@ -520,6 +547,8 @@ async function MesajDokumu({
       .select("kaynak_bolum")
       .in("proje_kullanici_id", projeKullaniciIdleri)
       .eq("kanal", kanal)
+      .gte("created_at", donem.baslangic)
+      .lt("created_at", donem.bitis)
       .order("created_at", { ascending: false })
       .limit(BOLUM_DAGILIMI_ORNEKLEM),
   ]);
